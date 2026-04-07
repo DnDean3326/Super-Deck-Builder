@@ -21,6 +21,9 @@ public class CombatController : MonoBehaviour
     [Header("Battle System")]
     [SerializeField] private CombatState state;
 
+    [Header("Player Deck")]
+    [SerializeField] private List<CombatCard> playerDeck = new List<CombatCard>();
+
     [Header("Combatants")] 
     [SerializeField] private List<CombatEntity> allCombatants = new List<CombatEntity>();
     [SerializeField] private List<CombatEntity> enemyCombatants = new List<CombatEntity>();
@@ -32,8 +35,8 @@ public class CombatController : MonoBehaviour
     [SerializeField] private List<CombatToken> allTokens = new List<CombatToken>();
     
     private PartyManager partyManager;
-    private EnemyManager enemyManager;
-    private TokenManager tokenManager;
+    //private EnemyManager enemyManager;
+    //private TokenManager tokenManager;
     
     // Character Specific Logic
     //private ImmuneBattleLogic immuneLogic;
@@ -59,7 +62,7 @@ public class CombatEntity
     public Sprite portrait;
     public bool isPlayer;
     public bool myFirstTurn = true;
-    public bool wasDamagedLastTurn;
+    public bool wasDamagedLastTurn = false;
     public int damagedBy;
     
     public string activeAbilityType;
@@ -70,10 +73,61 @@ public class CombatEntity
     public int currentHealth;
     public int maxArmor;
     public int currentArmor;
-    public int maxDefense;
+    public int maxDefense = 99999;
     public int currentDefense;
     
     public List<CombatToken> activeTokens;
+
+    CombatEntity(PlayerInfo playerInfo)
+    {
+        isPlayer = true;
+
+        
+    }
+    
+    CombatEntity(EnemyInfo enemyInfo)
+    {
+        isPlayer = false;
+        
+        name = enemyInfo.enemyName;
+        maxHealth = enemyInfo.baseHealth;
+        currentHealth = maxHealth;
+        maxArmor = enemyInfo.baseArmor;
+        currentArmor = maxArmor;
+        
+        activeTokens = new List<CombatToken>();
+    }
+}
+
+[Serializable]
+public class CombatCard
+{
+    public string cardName;
+    public Sprite cardArt;
+    public CardTypes cardType;
+    public int energyCost;
+    public int cardValue;
+    public int repeatUses;
+
+    public bool hasExtraCost;
+    public List<ExtraCostInfo> extraCostInfos = new List<ExtraCostInfo>();
+    
+    public string cardDescription;
+
+    CombatCard(ActiveCard activeCard)
+    {
+        cardName = activeCard.cardName;
+        cardArt = activeCard.cardArt;
+        cardType = activeCard.cardType;
+        energyCost = activeCard.energyCost;
+        repeatUses = activeCard.repeatUses;
+        cardDescription = activeCard.cardDescription;
+        hasExtraCost = activeCard.hasExtraCost;
+        if (hasExtraCost) {
+            extraCostInfos.AddRange(activeCard.extraCostInfos);
+        }
+        cardDescription = activeCard.cardDescription;
+    }
 }
 
 [Serializable]

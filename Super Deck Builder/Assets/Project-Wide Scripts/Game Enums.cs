@@ -12,6 +12,13 @@ public enum CardTypes
     Power
 }
 
+public enum ExtraCosts
+{
+    Health,
+    Defense,
+    Ammo
+}
+
 public enum EnemyIntents
 {
     Attack,
