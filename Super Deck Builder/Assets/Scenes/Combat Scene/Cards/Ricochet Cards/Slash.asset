@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78f5579014c46be48ac5dae531d2c44d, type: 3}
   m_Name: Slash
   m_EditorClassIdentifier: Assembly-CSharp::CardInfo
-  cardName: 
+  cardName: Slash
   cardArt: {fileID: 0}
   cardType: 0
-  energyCost: 0
-  cardValue: 0
+  energyCost: 1
+  cardMinValue: 2
+  cardMaxValue: 5
   repeatUses: 0
-  cardDescription: 
+  cardDescription: 'Deal 2-5 damage. '

@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78f5579014c46be48ac5dae531d2c44d, type: 3}
   m_Name: Block
   m_EditorClassIdentifier: Assembly-CSharp::CardInfo
-  cardName: 
+  cardName: Block
   cardArt: {fileID: 0}
-  cardType: 0
-  energyCost: 0
-  cardMinValue: 0
-  cardMaxValue: 0
+  cardType: 1
+  energyCost: 1
+  cardMinValue: 3
+  cardMaxValue: 3
   repeatUses: 0
-  cardDescription: 
+  cardDescription: Gain 3 Block.

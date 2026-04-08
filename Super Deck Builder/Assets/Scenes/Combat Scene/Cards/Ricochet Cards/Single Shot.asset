@@ -12,10 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78f5579014c46be48ac5dae531d2c44d, type: 3}
   m_Name: Single Shot
   m_EditorClassIdentifier: Assembly-CSharp::CardInfo
-  cardName: 
+  cardName: Single Shot
   cardArt: {fileID: 0}
   cardType: 0
-  energyCost: 0
-  cardValue: 0
+  energyCost: 1
+  cardMinValue: 6
+  cardMaxValue: 6
   repeatUses: 0
-  cardDescription: 
+  cardDescription: 'Fire 1.
+
+    Deal 6 damage.'

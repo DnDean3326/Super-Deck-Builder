@@ -19,4 +19,4 @@ MonoBehaviour:
   cardMinValue: 0
   cardMaxValue: 0
   repeatUses: 0
-  cardDescription: 
+  cardDescription: Reload the clip with two critical rounds and one blank.
