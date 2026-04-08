@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [CreateAssetMenu(fileName = "CardInfo", menuName = "Scriptable Objects/CardInfo")]
 public class CardInfo : ScriptableObject
@@ -8,7 +9,8 @@ public class CardInfo : ScriptableObject
     public Sprite cardArt;
     public CardTypes cardType;
     public int energyCost;
-    public int cardValue;
+    public int cardMinValue;
+    public int cardMaxValue;
     public int repeatUses;
     
     public List<ExtraCostInfo> extraCostInfos;

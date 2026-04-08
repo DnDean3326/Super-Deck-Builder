@@ -1,10 +1,83 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class PartyManager : MonoBehaviour
 {
+    [SerializeField] private PlayerInfo[] allCharacters;
+    [SerializeField] private List<ActiveCharacter> currentParty;
+
+    private static GameObject _instance;
+
+    private const int BASE_LEVEL = 1;
     
+    private void Awake()
+    {
+        if (_instance != null) {
+            Destroy(gameObject);
+        } else {
+            _instance = gameObject;
+        }
+        
+        DontDestroyOnLoad(gameObject);
+    }
+    
+    public static int GetBaseLevel()
+    {
+        return BASE_LEVEL;
+    }
+
+    public void AddMemberToPartyByName(string memberName, int level)
+    {
+        for (int i = 0; i < currentParty.Count; i++) {
+            if (allCharacters[i].characterAlias == memberName) {
+                ActiveCharacter newMember = new ActiveCharacter(allCharacters[i], level);
+                currentParty.Add(newMember);
+            }
+        }
+    }
+    
+    public List<PlayerInfo> GetAllAllies()
+    {
+        List<PlayerInfo> characterList = new List<PlayerInfo>();
+        characterList.AddRange(allCharacters);
+        return characterList;
+    }
+    
+    public List<ActiveCharacter> GetCurrentParty()
+    {
+        List<ActiveCharacter> aliveParty = currentParty;
+        for (int i = 0; i < aliveParty.Count; i++) {
+            if (aliveParty[i].currentHealth <= 0) {
+                aliveParty.RemoveAt(i);
+            }
+        }
+        return aliveParty;
+    }
+
+    public void UpdatePartyStatus()
+    {
+        List<ActiveCharacter> deadMembers = new List<ActiveCharacter>();
+        foreach (ActiveCharacter member in currentParty) {
+            if (member.currentHealth <= 0) {
+                deadMembers.Add(member);
+            }
+        }
+        foreach (ActiveCharacter member in deadMembers) {
+            currentParty.Remove(member);
+        }
+    }
+    
+    public void SaveHealth(int partyMember, int health)
+    {
+        currentParty[partyMember].currentHealth = health;
+    }
+    
+    public void ClearCurrentParty()
+    {
+        currentParty.Clear();
+    }
 }
 
 [Serializable]
@@ -22,7 +95,20 @@ public class ActiveCharacter
 
     public ActiveCharacter(PlayerInfo playerInfo)
     {
-        level = 1;
+        level = PartyManager.GetBaseLevel();
+        
+        activeName = playerInfo.characterAlias;
+        maxHealth = playerInfo.baseHealth;
+        currentHealth = maxHealth;
+        maxArmor = playerInfo.baseArmor;
+        currentArmor = maxArmor;
+        
+        AddStarterCards(playerInfo.startingCards);
+    }
+
+    public ActiveCharacter(PlayerInfo playerInfo, int level)
+    {
+        this.level = level;
         
         activeName = playerInfo.characterAlias;
         maxHealth = playerInfo.baseHealth;
@@ -48,7 +134,8 @@ public class ActiveCard
     public Sprite cardArt;
     public CardTypes cardType;
     public int energyCost;
-    public int cardValue;
+    public int cardMinValue;
+    public int cardMaxValue;
     public int repeatUses;
 
     public bool hasExtraCost = false;
@@ -62,7 +149,8 @@ public class ActiveCard
         cardArt = cardInfo.cardArt;
         cardType = cardInfo.cardType;
         energyCost = cardInfo.energyCost;
-        cardValue = cardInfo.cardValue;
+        cardMinValue = cardInfo.cardMinValue;
+        cardMaxValue = cardInfo.cardMaxValue;
         repeatUses = cardInfo.repeatUses;
         if (cardInfo.extraCostInfos != null) {
             extraCostInfos.AddRange(cardInfo.extraCostInfos);
@@ -83,12 +171,34 @@ public class ActiveCard
     
     public void ModifyValue(int valueChange)
     {
-        cardValue += valueChange;
+        cardMinValue += valueChange;
+        cardMaxValue += valueChange;
     }
     
     public void SetValue(int valueChange)
     {
-        cardValue = valueChange;
+        cardMinValue = valueChange;
+        cardMaxValue = valueChange;
+    }
+
+    public void ModifyMinValue(int valueChange)
+    {
+        cardMinValue += valueChange;
+    }
+    
+    public void SetMinValue(int valueChange)
+    {
+        cardMinValue = valueChange;
+    }
+    
+    public void SetMaxValue(int valueChange)
+    {
+        cardMaxValue = valueChange;
+    }
+    
+    public void ModifyMaxValue(int valueChange)
+    {
+        cardMaxValue += valueChange;
     }
 
     public void ModifyRepeatUses(int valueChange)
@@ -99,12 +209,5 @@ public class ActiveCard
     public void SetRepeatUses(int valueChange)
     {
         repeatUses = valueChange;
-    }
-
-    public void ModifyExtraCost(int valueChange)
-    {
-        if (!hasExtraCost) {
-            
-        }
     }
 }
