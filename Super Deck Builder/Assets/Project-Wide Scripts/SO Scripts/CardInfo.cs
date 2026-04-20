@@ -8,6 +8,7 @@ public class CardInfo : ScriptableObject
     public string cardName;
     public Sprite cardArt;
     public CardTypes cardType;
+    public CardCharacter cardCharacter;
     public int energyCost;
     public int repeatUses;
     

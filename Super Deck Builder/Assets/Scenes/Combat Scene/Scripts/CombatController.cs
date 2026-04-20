@@ -96,6 +96,8 @@ public class CombatController : MonoBehaviour
                 }
             }
             
+            //TODO Spawn character visuals
+            
             allCombatants.Add(tempEntity);
             allyCombatants.Add(tempEntity);
         }
@@ -108,6 +110,8 @@ public class CombatController : MonoBehaviour
 
         foreach (Enemy enemy in enemies) {
             CombatEntity tempEntity = new CombatEntity(enemy);
+            
+            //TODO Spawn character visuals
             
             allCombatants.Add(tempEntity);
             enemyCombatants.Add(tempEntity);

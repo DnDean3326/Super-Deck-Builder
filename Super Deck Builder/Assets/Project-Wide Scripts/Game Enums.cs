@@ -12,6 +12,12 @@ public enum CardTypes
     Power
 }
 
+public enum CardCharacter
+{
+    Immune,
+    Ricochet
+}
+
 public enum CardValue
 {
     Damage,
