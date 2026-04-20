@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 786556b215d883642b59408b47dba82b, type: 3}
+  m_Name: Ricochet
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerInfo
+  characterName: Trevon
+  characterAlias: Ricochet
+  baseHealth: 60
+  baseArmor: 3
+  startingCards:
+  - {fileID: 11400000, guid: 5fac5379eb85ff74a8de13b6427030f3, type: 2}
+  - {fileID: 11400000, guid: 5fac5379eb85ff74a8de13b6427030f3, type: 2}
+  - {fileID: 11400000, guid: 5fac5379eb85ff74a8de13b6427030f3, type: 2}
+  - {fileID: 11400000, guid: 5fac5379eb85ff74a8de13b6427030f3, type: 2}
+  - {fileID: 11400000, guid: 76f04cce91f6e4e4791743e714da3bb7, type: 2}
+  - {fileID: 11400000, guid: 76f04cce91f6e4e4791743e714da3bb7, type: 2}
+  - {fileID: 11400000, guid: 4e9feb1c8f8d4b0409fc7dfae7429307, type: 2}
+  - {fileID: 11400000, guid: 4e9feb1c8f8d4b0409fc7dfae7429307, type: 2}
+  - {fileID: 11400000, guid: 4e9feb1c8f8d4b0409fc7dfae7429307, type: 2}
+  - {fileID: 11400000, guid: 4e9feb1c8f8d4b0409fc7dfae7429307, type: 2}
+  - {fileID: 11400000, guid: 8c86a1722ee1a974fbf23527982a558c, type: 2}
+  characterCardPool: []
+  characterDescription: 

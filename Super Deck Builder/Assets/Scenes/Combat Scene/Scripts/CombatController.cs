@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Unity.VisualScripting.Antlr3.Runtime;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -35,13 +34,28 @@ public class CombatController : MonoBehaviour
     [SerializeField] private List<CombatToken> allTokens = new List<CombatToken>();
     
     private PartyManager partyManager;
-    //private EnemyManager enemyManager;
-    //private TokenManager tokenManager;
+    private EnemyManager enemyManager;
+    private TokenManager tokenManager;
     
     // Character Specific Logic
     //private ImmuneBattleLogic immuneLogic;
     //private RicochetBattleLogic ricochetLogic;
-    
+
+    private void Awake()
+    {
+        partyManager = FindFirstObjectByType<PartyManager>();
+        enemyManager = FindFirstObjectByType<EnemyManager>();
+        tokenManager = FindFirstObjectByType<TokenManager>();
+        
+        // Temp code for one-scene testing
+        partyManager.GenerateTestParty();
+        enemyManager.GenerateTestEncounter();
+        
+        InitializeBattleTokens();
+        CreatePartyEntities();
+        CreateEnemyEntities();
+    }
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -52,6 +66,52 @@ public class CombatController : MonoBehaviour
     void Update()
     {
         
+    }
+    
+    private void InitializeBattleTokens()
+    {
+        List<Token> tokens = new List<Token>();
+        tokens.AddRange(tokenManager.GetTokenInfo());
+
+        foreach (Token token in tokens) {
+            CombatToken tempToken = new CombatToken(token);
+            
+            allTokens.Add(tempToken);
+        }
+    }
+
+    private void CreatePartyEntities()
+    {
+        List<ActiveCharacter> activeCharacters = new List<ActiveCharacter>();
+        activeCharacters.AddRange(partyManager.GetCurrentParty());
+
+        foreach (ActiveCharacter character in activeCharacters) {
+            CombatEntity tempEntity = new CombatEntity(character);
+            
+            //TODO make this way less janky
+            if (tempEntity.isPlayer) {
+                foreach (ActiveCard card in character.currentDeck) {
+                    CombatCard tempCard = new CombatCard(card);
+                    playerDeck.Add(tempCard);
+                }
+            }
+            
+            allCombatants.Add(tempEntity);
+            allyCombatants.Add(tempEntity);
+        }
+    }
+
+    private void CreateEnemyEntities()
+    {
+        List<Enemy> enemies = new List<Enemy>();
+        enemies.AddRange(enemyManager.GetCurrentEnemies());
+
+        foreach (Enemy enemy in enemies) {
+            CombatEntity tempEntity = new CombatEntity(enemy);
+            
+            allCombatants.Add(tempEntity);
+            enemyCombatants.Add(tempEntity);
+        }
     }
 }
 
@@ -78,55 +138,30 @@ public class CombatEntity
     
     public List<CombatToken> activeTokens;
 
-    CombatEntity(PlayerInfo playerInfo)
+    internal CombatEntity(ActiveCharacter playerCharacter)
     {
         isPlayer = true;
 
-        
-    }
-    
-    CombatEntity(EnemyInfo enemyInfo)
-    {
-        isPlayer = false;
-        
-        name = enemyInfo.enemyName;
-        maxHealth = enemyInfo.baseHealth;
-        currentHealth = maxHealth;
-        maxArmor = enemyInfo.baseArmor;
-        currentArmor = maxArmor;
+        name = playerCharacter.activeAlias;
+        maxHealth = playerCharacter.maxHealth;
+        currentHealth = playerCharacter.currentHealth;
+        maxArmor = playerCharacter.maxArmor;
+        currentArmor = playerCharacter.currentArmor;
         
         activeTokens = new List<CombatToken>();
     }
-}
-
-[Serializable]
-public class CombatCard
-{
-    public string cardName;
-    public Sprite cardArt;
-    public CardTypes cardType;
-    public int energyCost;
-    public int cardValue;
-    public int repeatUses;
-
-    public bool hasExtraCost;
-    public List<ExtraCostInfo> extraCostInfos = new List<ExtraCostInfo>();
     
-    public string cardDescription;
-
-    CombatCard(ActiveCard activeCard)
+    internal CombatEntity(Enemy enemy)
     {
-        cardName = activeCard.cardName;
-        cardArt = activeCard.cardArt;
-        cardType = activeCard.cardType;
-        energyCost = activeCard.energyCost;
-        repeatUses = activeCard.repeatUses;
-        cardDescription = activeCard.cardDescription;
-        hasExtraCost = activeCard.hasExtraCost;
-        if (hasExtraCost) {
-            extraCostInfos.AddRange(activeCard.extraCostInfos);
-        }
-        cardDescription = activeCard.cardDescription;
+        isPlayer = false;
+        
+        name = enemy.enemyName;
+        maxHealth = enemy.maxHealth;
+        currentHealth = enemy.currentHealth;
+        maxArmor = enemy.maxHealth;
+        currentArmor = enemy.currentArmor;
+        
+        activeTokens = new List<CombatToken>();
     }
 }
 
@@ -145,18 +180,57 @@ public class CombatToken
 
     public string tokenDescription;
 
-    CombatToken(string storedName, string storedDisplayName, Sprite storedIcon, Token.TokenType storedType,
-        float storedValue, int storedCap, List<String> storedInverses, string storedDescription)
+    internal CombatToken(Token token)
     {
-        tokenName = storedName;
-        displayName = storedDisplayName;
-        tokenIcon = storedIcon;
-        tokenType = storedType;
-        tokenValue = storedValue;
-        tokenCap = storedCap;
+        tokenName = token.tokenName;
+        displayName = token.displayName;
+        tokenIcon = token.tokenIcon;
+        tokenType = token.tokenType;
+        tokenValue = token.tokenValue;
+        tokenCap = token.tokenCap;
         tokenCount = 0;
-        tokenInverses = storedInverses;
+        tokenInverses.AddRange(tokenInverses);
+        
+        tokenDescription = token.tokenDescription;
+    }
+}
 
-        tokenDescription = storedDescription;
+[Serializable]
+public class CombatCard
+{
+    public string cardName;
+    public Sprite cardArt;
+    public CardTypes cardType;
+    public int energyCost;
+    public int repeatUses;
+
+    public List<CardValueInfo> cardValues = new List<CardValueInfo>();
+    public List<ExtraCostInfo> extraCosts = new List<ExtraCostInfo>();
+    public List<TokenAppliedInfo> selfTokensApplied = new List<TokenAppliedInfo>();
+    public List<TokenAppliedInfo> targetTokensApplied = new List<TokenAppliedInfo>();
+    
+    public string cardDescription;
+
+    internal CombatCard(ActiveCard activeCard)
+    {
+        cardName = activeCard.cardName;
+        cardArt = activeCard.cardArt;
+        cardType = activeCard.cardType;
+        energyCost = activeCard.energyCost;
+        repeatUses = activeCard.repeatUses;
+        cardDescription = activeCard.cardDescription;
+        
+        if (activeCard.cardValues != null) {
+            cardValues.AddRange(activeCard.cardValues);
+        }
+        if (activeCard.extraCosts != null) {
+            extraCosts.AddRange(activeCard.extraCosts);
+        }
+        if (activeCard.selfTokensApplied != null) {
+            selfTokensApplied.AddRange(activeCard.selfTokensApplied);
+        }
+        if (activeCard.targetTokensApplied != null) {
+            targetTokensApplied.AddRange(activeCard.targetTokensApplied);
+        }
     }
 }

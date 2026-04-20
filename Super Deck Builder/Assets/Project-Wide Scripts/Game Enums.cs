@@ -12,6 +12,14 @@ public enum CardTypes
     Power
 }
 
+public enum CardValue
+{
+    Damage,
+    Defense,
+    Heal,
+    CardDraw,
+}
+
 public enum ExtraCosts
 {
     Health,

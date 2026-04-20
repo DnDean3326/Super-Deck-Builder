@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class EnemyManager : MonoBehaviour
 {
+    [SerializeField] private Encounter testEncounter;
+    
     [SerializeField] private EnemyInfo[] allEnemies;
     [SerializeField] private List<Enemy> currentEnemies;
     
@@ -19,6 +21,11 @@ public class EnemyManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    public void GenerateTestEncounter()
+    {
+        GenerateEnemiesByEncounter(testEncounter);
+    }
+
     public void GenerateEnemiesByEncounter(Encounter tempEncounter)
     {
         currentEnemies.Clear();
@@ -30,7 +37,7 @@ public class EnemyManager : MonoBehaviour
     
     private void GenerateEnemyByName(string memberName)
     {
-        for (int i = 0; i < currentEnemies.Count; i++) {
+        for (int i = 0; i < allEnemies.Length; i++) {
             if (allEnemies[i].enemyName == memberName) {
                 Enemy newEnemy = new Enemy(allEnemies[i]);
                 currentEnemies.Add(newEnemy);

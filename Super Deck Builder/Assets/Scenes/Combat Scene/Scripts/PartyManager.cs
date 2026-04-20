@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Serialization;
 
 public class PartyManager : MonoBehaviour
 {
+    [SerializeField] private PlayerInfo testCharacter;
+    
     [SerializeField] private PlayerInfo[] allCharacters;
     [SerializeField] private List<ActiveCharacter> currentParty;
 
@@ -22,6 +25,11 @@ public class PartyManager : MonoBehaviour
         
         DontDestroyOnLoad(gameObject);
     }
+
+    public void GenerateTestParty()
+    {
+        AddMemberToPartyByName(testCharacter.characterAlias, BASE_LEVEL);
+    }
     
     public static int GetBaseLevel()
     {
@@ -30,7 +38,7 @@ public class PartyManager : MonoBehaviour
 
     public void AddMemberToPartyByName(string memberName, int level)
     {
-        for (int i = 0; i < currentParty.Count; i++) {
+        for (int i = 0; i < allCharacters.Length; i++) {
             if (allCharacters[i].characterAlias == memberName) {
                 ActiveCharacter newMember = new ActiveCharacter(allCharacters[i], level);
                 currentParty.Add(newMember);
@@ -84,6 +92,7 @@ public class PartyManager : MonoBehaviour
 public class ActiveCharacter
 {
     public string activeName;
+    public string activeAlias;
     public int level;
 
     public int maxHealth;
@@ -97,7 +106,8 @@ public class ActiveCharacter
     {
         level = PartyManager.GetBaseLevel();
         
-        activeName = playerInfo.characterAlias;
+        activeName = playerInfo.characterName;
+        activeAlias = playerInfo.characterAlias;
         maxHealth = playerInfo.baseHealth;
         currentHealth = maxHealth;
         maxArmor = playerInfo.baseArmor;
@@ -110,7 +120,8 @@ public class ActiveCharacter
     {
         this.level = level;
         
-        activeName = playerInfo.characterAlias;
+        activeName = playerInfo.characterName;
+        activeAlias = playerInfo.characterAlias;
         maxHealth = playerInfo.baseHealth;
         currentHealth = maxHealth;
         maxArmor = playerInfo.baseArmor;
@@ -134,12 +145,12 @@ public class ActiveCard
     public Sprite cardArt;
     public CardTypes cardType;
     public int energyCost;
-    public int cardMinValue;
-    public int cardMaxValue;
     public int repeatUses;
-
-    public bool hasExtraCost = false;
-    public List<ExtraCostInfo> extraCostInfos = new List<ExtraCostInfo>();
+    
+    public List<ExtraCostInfo> extraCosts = new List<ExtraCostInfo>();
+    public List<CardValueInfo> cardValues = new List<CardValueInfo>();
+    public List<TokenAppliedInfo> selfTokensApplied = new List<TokenAppliedInfo>();
+    public List<TokenAppliedInfo> targetTokensApplied = new List<TokenAppliedInfo>();
     
     public string cardDescription;
 
@@ -149,14 +160,33 @@ public class ActiveCard
         cardArt = cardInfo.cardArt;
         cardType = cardInfo.cardType;
         energyCost = cardInfo.energyCost;
-        cardMinValue = cardInfo.cardMinValue;
-        cardMaxValue = cardInfo.cardMaxValue;
         repeatUses = cardInfo.repeatUses;
-        if (cardInfo.extraCostInfos != null) {
-            extraCostInfos.AddRange(cardInfo.extraCostInfos);
-            hasExtraCost = true;
-        }
         cardDescription = cardInfo.cardDescription;
+
+        if (cardInfo.cardValueInfos != null) {
+            foreach (var cardValue in cardInfo.cardValueInfos) {
+                CardValueInfo tempValue = new CardValueInfo(cardValue);
+                cardValues.Add(tempValue);
+            }
+        }
+        if (cardInfo.extraCostInfos != null) {
+            foreach (var extraCost in cardInfo.extraCostInfos) {
+                ExtraCostInfo tempCost = new ExtraCostInfo(extraCost);
+                extraCosts.Add(tempCost);
+            }
+        }
+        if (cardInfo.selfTokenAppliedInfos != null) {
+            foreach (var selfToken in cardInfo.selfTokenAppliedInfos) {
+                TokenAppliedInfo tempToken = new TokenAppliedInfo(selfToken);
+                selfTokensApplied.Add(tempToken);
+            }
+        }
+        if (cardInfo.targetTokenAppliedInfos != null) {
+            foreach (var selfToken in cardInfo.targetTokenAppliedInfos) {
+                TokenAppliedInfo tempToken = new TokenAppliedInfo(selfToken);
+                targetTokensApplied.Add(tempToken);
+            }
+        }
     }
 
     public void ModifyEnergyCost(int valueChange)
@@ -169,36 +199,54 @@ public class ActiveCard
         energyCost = valueChange;
     }
     
-    public void ModifyValue(int valueChange)
+    public void ModifyValue(CardValue value, int valueChange)
     {
-        cardMinValue += valueChange;
-        cardMaxValue += valueChange;
+        if (cardValues.Any(t => t.cardValue == value)) {
+            CardValueInfo valueToChange = cardValues.First(t => t.cardValue == value);
+            valueToChange.minValue += valueChange;
+            valueToChange.maxValue += valueChange;
+        }
     }
     
-    public void SetValue(int valueChange)
+    public void SetValue(CardValue value, int valueChange)
     {
-        cardMinValue = valueChange;
-        cardMaxValue = valueChange;
+        if (cardValues.Any(t => t.cardValue == value)) {
+            CardValueInfo valueToChange = cardValues.First(t => t.cardValue == value);
+            valueToChange.minValue = valueChange;
+            valueToChange.maxValue = valueChange;
+        }
     }
 
-    public void ModifyMinValue(int valueChange)
+    public void ModifyMinValue(CardValue value, int valueChange)
     {
-        cardMinValue += valueChange;
+        if (cardValues.Any(t => t.cardValue == value)) {
+            CardValueInfo valueToChange = cardValues.First(t => t.cardValue == value);
+            valueToChange.minValue += valueChange;
+        }
     }
     
-    public void SetMinValue(int valueChange)
+    public void SetMinValue(CardValue value, int valueChange)
     {
-        cardMinValue = valueChange;
+        if (cardValues.Any(t => t.cardValue == value)) {
+            CardValueInfo valueToChange = cardValues.First(t => t.cardValue == value);
+            valueToChange.minValue = valueChange;
+        }
     }
     
-    public void SetMaxValue(int valueChange)
+    public void ModifyMaxValue(CardValue value, int valueChange)
     {
-        cardMaxValue = valueChange;
+        if (cardValues.Any(t => t.cardValue == value)) {
+            CardValueInfo valueToChange = cardValues.First(t => t.cardValue == value);
+            valueToChange.maxValue += valueChange;
+        }
     }
     
-    public void ModifyMaxValue(int valueChange)
+    public void SetMaxValue(CardValue value, int valueChange)
     {
-        cardMaxValue += valueChange;
+        if (cardValues.Any(t => t.cardValue == value)) {
+            CardValueInfo valueToChange = cardValues.First(t => t.cardValue == value);
+            valueToChange.maxValue = valueChange;
+        }
     }
 
     public void ModifyRepeatUses(int valueChange)

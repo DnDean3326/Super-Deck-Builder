@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 78f5579014c46be48ac5dae531d2c44d, type: 3}
-  m_Name: Block
+  m_Name: Defend
   m_EditorClassIdentifier: Assembly-CSharp::CardInfo
-  cardName: Block
+  cardName: Defend
   cardArt: {fileID: 0}
   cardType: 1
   energyCost: 1
   cardMinValue: 3
   cardMaxValue: 3
   repeatUses: 0
-  cardDescription: Gain 3 Block.
+  cardDescription: Gain 3 Defense.
