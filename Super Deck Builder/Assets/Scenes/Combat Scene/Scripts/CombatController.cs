@@ -21,18 +21,18 @@ public class CombatController : MonoBehaviour
     [SerializeField] private CombatState state;
 
     [Header("Player Deck")]
-    [SerializeField] private List<CombatCard> playerDeck = new List<CombatCard>();
+    [SerializeField] private List<PlayerDeck> playerDecks = new List<PlayerDeck>();
 
     [Header("Combatants")] 
     [SerializeField] private List<CombatEntity> allCombatants = new List<CombatEntity>();
-    [SerializeField] private List<CombatEntity> enemyCombatants = new List<CombatEntity>();
     [SerializeField] private List<CombatEntity> allyCombatants = new List<CombatEntity>();
+    [SerializeField] private List<CombatEntity> enemyCombatants = new List<CombatEntity>();
     [SerializeField] private List<CombatEntity> turnOrder = new  List<CombatEntity>(); //Unsure if this will be needed
     [SerializeField] private List<CombatEntity> targetList = new List<CombatEntity>();
     
     [Header("Tokens")]
     [SerializeField] private List<CombatToken> allTokens = new List<CombatToken>();
-    
+
     private PartyManager partyManager;
     private EnemyManager enemyManager;
     private TokenManager tokenManager;
@@ -40,6 +40,8 @@ public class CombatController : MonoBehaviour
     // Character Specific Logic
     //private ImmuneBattleLogic immuneLogic;
     //private RicochetBattleLogic ricochetLogic;
+
+    private const int BASE_CARD_DRAW = 5; 
 
     private void Awake()
     {
@@ -54,18 +56,12 @@ public class CombatController : MonoBehaviour
         InitializeBattleTokens();
         CreatePartyEntities();
         CreateEnemyEntities();
+        CreatePlayerDecks();
     }
-
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    
     void Start()
     {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
+        FirstDraw();
     }
     
     private void InitializeBattleTokens()
@@ -88,14 +84,6 @@ public class CombatController : MonoBehaviour
         foreach (ActiveCharacter character in activeCharacters) {
             CombatEntity tempEntity = new CombatEntity(character);
             
-            //TODO make this way less janky
-            if (tempEntity.isPlayer) {
-                foreach (ActiveCard card in character.currentDeck) {
-                    CombatCard tempCard = new CombatCard(card);
-                    playerDeck.Add(tempCard);
-                }
-            }
-            
             //TODO Spawn character visuals
             
             allCombatants.Add(tempEntity);
@@ -115,6 +103,73 @@ public class CombatController : MonoBehaviour
             
             allCombatants.Add(tempEntity);
             enemyCombatants.Add(tempEntity);
+        }
+    }
+
+    private void CreatePlayerDecks()
+    {
+        for (int i = 0; i < allyCombatants.Count; i++) {
+            var ally = allyCombatants[i];
+            
+            GameObject tempDeckHolder = new GameObject { name = "Player " + (i + 1) + " Deck" };
+            tempDeckHolder.transform.SetParent(this.transform);
+
+            var tempDraw = CreatePlayerDraw(ally, tempDeckHolder);
+            var tempHand = CreatePlayerHand(ally, tempDeckHolder);
+            var tempDiscard = CreatePlayerDiscard(ally, tempDeckHolder);
+            var tempExile = CreatePlayerExile(ally, tempDeckHolder);
+
+            PlayerDeck tempDeck = new PlayerDeck(tempDraw, tempHand, tempDiscard, tempExile);
+            tempDeck.ReshuffleDeck();
+            ally.LinkDeck(tempDeck);
+            playerDecks.Add(tempDeck);
+        }
+    }
+    
+    private PlayerDraw CreatePlayerDraw(CombatEntity ally, GameObject deckHolder)
+    {
+        deckHolder.AddComponent<PlayerDraw>();
+        PlayerDraw drawScript = deckHolder.GetComponent<PlayerDraw>();
+        drawScript.SetMyPlayer(ally);
+        
+        drawScript.InitializeDeck(ally.myCards);
+        
+        return drawScript;
+    }
+
+    private PlayerHand CreatePlayerHand(CombatEntity ally, GameObject deckHolder)
+    {
+        deckHolder.AddComponent<PlayerHand>();
+        PlayerHand handScript = deckHolder.GetComponent<PlayerHand>();
+        handScript.SetMyPlayer(ally);
+        
+        return handScript;
+    }
+
+    private PlayerDiscard CreatePlayerDiscard(CombatEntity ally, GameObject deckHolder)
+    {
+        deckHolder.AddComponent<PlayerDiscard>();
+        PlayerDiscard discardScript = deckHolder.GetComponent<PlayerDiscard>();
+        discardScript.SetMyPlayer(ally);
+
+        return discardScript;
+    }
+
+    private PlayerExile CreatePlayerExile(CombatEntity ally, GameObject deckHolder)
+    {
+        deckHolder.AddComponent<PlayerExile>();
+        PlayerExile exileScript = deckHolder.GetComponent<PlayerExile>();
+        exileScript.SetMyPlayer(ally);
+        
+        return exileScript;
+    }
+
+    private void FirstDraw()
+    {
+        foreach (var ally in allyCombatants) {
+            if (ally.isPlayer) {
+                ally.myDeck.DrawCards(BASE_CARD_DRAW);
+            }
         }
     }
 }
@@ -139,8 +194,11 @@ public class CombatEntity
     public int currentArmor;
     public int maxDefense = 99999;
     public int currentDefense;
+
+    public PlayerDeck myDeck;
     
-    public List<CombatToken> activeTokens;
+    public List<CombatToken> activeTokens = new List<CombatToken>();
+    public List<CombatCard> myCards = new List<CombatCard>();
 
     internal CombatEntity(ActiveCharacter playerCharacter)
     {
@@ -151,8 +209,11 @@ public class CombatEntity
         currentHealth = playerCharacter.currentHealth;
         maxArmor = playerCharacter.maxArmor;
         currentArmor = playerCharacter.currentArmor;
-        
-        activeTokens = new List<CombatToken>();
+
+        foreach (var card in playerCharacter.currentDeck) {
+            CombatCard tempCard = new CombatCard(card);
+            myCards.Add(tempCard);
+        }
     }
     
     internal CombatEntity(Enemy enemy)
@@ -164,8 +225,11 @@ public class CombatEntity
         currentHealth = enemy.currentHealth;
         maxArmor = enemy.maxHealth;
         currentArmor = enemy.currentArmor;
-        
-        activeTokens = new List<CombatToken>();
+    }
+
+    internal void LinkDeck(PlayerDeck deck)
+    {
+        myDeck = deck;
     }
 }
 
@@ -214,6 +278,8 @@ public class CombatCard
     public List<TokenAppliedInfo> targetTokensApplied = new List<TokenAppliedInfo>();
     
     public string cardDescription;
+    
+    [FormerlySerializedAs("cardPrefab")] public GameObject cardVisuals;
 
     internal CombatCard(ActiveCard activeCard)
     {
@@ -223,6 +289,7 @@ public class CombatCard
         energyCost = activeCard.energyCost;
         repeatUses = activeCard.repeatUses;
         cardDescription = activeCard.cardDescription;
+        cardVisuals = activeCard.cardPrefab;
         
         if (activeCard.cardValues != null) {
             cardValues.AddRange(activeCard.cardValues);
@@ -235,6 +302,41 @@ public class CombatCard
         }
         if (activeCard.targetTokensApplied != null) {
             targetTokensApplied.AddRange(activeCard.targetTokensApplied);
+        }
+    }
+}
+
+[Serializable]
+public class PlayerDeck
+{
+    public PlayerDraw draw;
+    public PlayerHand hand;
+    public PlayerDiscard discard;
+    public PlayerExile exile;
+
+    internal PlayerDeck(PlayerDraw playerDraw, PlayerHand playerHand, PlayerDiscard playerDiscard, PlayerExile playerExile)
+    {
+        draw = playerDraw;
+        hand = playerHand;
+        discard = playerDiscard;
+        exile = playerExile;
+    }
+
+    public void ReshuffleDeck()
+    {
+        var discardedCards = discard.RetrieveCardsInDiscard();
+        draw.AddCardsToDraw(discardedCards);
+        draw.ShuffleDeck();
+    }
+
+    public void DrawCards(int drawCount)
+    {
+        for (int i = 0; i < drawCount; i++) {
+            if (draw.GetDrawCount() == 0) {
+                ReshuffleDeck();
+            }
+            CombatCard drawnCard = draw.DrawTopCard();
+            hand.AddCardToHand(drawnCard);
         }
     }
 }

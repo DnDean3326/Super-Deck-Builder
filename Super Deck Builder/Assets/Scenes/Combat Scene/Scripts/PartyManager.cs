@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor;
 using UnityEngine;
 
 public class PartyManager : MonoBehaviour
@@ -9,6 +10,7 @@ public class PartyManager : MonoBehaviour
     
     [SerializeField] private PlayerInfo[] allCharacters;
     [SerializeField] private List<ActiveCharacter> currentParty;
+    [SerializeField] private Transform cardStorage;
 
     private static GameObject _instance;
 
@@ -40,6 +42,11 @@ public class PartyManager : MonoBehaviour
         for (int i = 0; i < allCharacters.Length; i++) {
             if (allCharacters[i].characterAlias == memberName) {
                 ActiveCharacter newMember = new ActiveCharacter(allCharacters[i], level);
+                for (var p = 0; p < newMember.currentDeck.Count; p++) {
+                    var card = newMember.currentDeck[p];
+                    CreateCardDisplay(card);
+                }
+
                 currentParty.Add(newMember);
             }
         }
@@ -85,6 +92,13 @@ public class PartyManager : MonoBehaviour
     {
         currentParty.Clear();
     }
+    
+    public void CreateCardDisplay(ActiveCard card)
+    {
+        GameObject cardVisuals = Instantiate(card.cardPrefab, cardStorage);
+        cardVisuals.GetComponent<CardDisplay>().SetCardDisplay(card);
+        card.cardPrefab = cardVisuals;
+    }
 }
 
 [Serializable]
@@ -112,7 +126,7 @@ public class ActiveCharacter
         maxArmor = playerInfo.baseArmor;
         currentArmor = maxArmor;
         
-        AddStarterCards(playerInfo.startingCards);
+        AddStarterCards(playerInfo.startingCards, playerInfo);
     }
 
     public ActiveCharacter(PlayerInfo playerInfo, int level)
@@ -126,13 +140,13 @@ public class ActiveCharacter
         maxArmor = playerInfo.baseArmor;
         currentArmor = maxArmor;
         
-        AddStarterCards(playerInfo.startingCards);
+        AddStarterCards(playerInfo.startingCards, playerInfo);
     }
 
-    public void AddStarterCards(List<CardInfo> startingCards)
+    public void AddStarterCards(List<CardInfo> startingCards, PlayerInfo playerInfo)
     {
         foreach (CardInfo cardInfo in startingCards) {
-            currentDeck.Add(new ActiveCard(cardInfo));
+            currentDeck.Add(new ActiveCard(cardInfo, playerInfo));
         }
     }
 }
@@ -152,8 +166,10 @@ public class ActiveCard
     public List<TokenAppliedInfo> targetTokensApplied = new List<TokenAppliedInfo>();
     
     public string cardDescription;
+    
+    public GameObject cardPrefab;
 
-    public ActiveCard(CardInfo cardInfo)
+    public ActiveCard(CardInfo cardInfo, PlayerInfo playerInfo)
     {
         cardName = cardInfo.cardName;
         cardArt = cardInfo.cardArt;
@@ -161,6 +177,7 @@ public class ActiveCard
         energyCost = cardInfo.energyCost;
         repeatUses = cardInfo.repeatUses;
         cardDescription = cardInfo.cardDescription;
+        cardPrefab = playerInfo.characterCardPrefab;
 
         if (cardInfo.cardValueInfos != null) {
             foreach (var cardValue in cardInfo.cardValueInfos) {

@@ -578,8 +578,9 @@ GameObject:
   - component: {fileID: 4807926777344618438}
   - component: {fileID: 6276072935573939095}
   - component: {fileID: 4512180820577119302}
+  - component: {fileID: 1382549115549772422}
   m_Layer: 5
-  m_Name: Card Background
+  m_Name: Card Template
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -644,6 +645,22 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &1382549115549772422
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6834075367253044919}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 049fa63b27be64c46aa855484a65f982, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CardDisplay
+  cardNameDisplay: {fileID: 3289199232325723643}
+  cardTypeDisplay: {fileID: 5548508256688291885}
+  cardDescriptionDisplay: {fileID: 8401179314004789665}
+  cardImageDisplay: {fileID: 7004542520602073442}
 --- !u!1 &8177221827825514190
 GameObject:
   m_ObjectHideFlags: 0
