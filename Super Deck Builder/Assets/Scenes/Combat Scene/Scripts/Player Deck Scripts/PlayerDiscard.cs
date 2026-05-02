@@ -3,12 +3,17 @@ using UnityEngine;
 
 public class PlayerDiscard : MonoBehaviour
 {
-    private CombatEntity myPlayer;
+    private PlayerEntity myPlayer;
     [SerializeField] private List<CombatCard> cardsInDiscard = new List<CombatCard>();
     
-    public void SetMyPlayer(CombatEntity player)
+    public void SetMyPlayer(PlayerEntity player)
     {
         myPlayer = player;
+    }
+
+    public void AddToDiscard(CombatCard card)
+    {
+        cardsInDiscard.Add(card);
     }
 
     public int GetDiscardCount()

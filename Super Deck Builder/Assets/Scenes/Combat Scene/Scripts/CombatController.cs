@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Serialization;
+using Random = UnityEngine.Random;
 
 public class CombatController : MonoBehaviour
 {
@@ -22,14 +24,14 @@ public class CombatController : MonoBehaviour
     [Header("Battle System")]
     [SerializeField] private CombatState state;
 
-    [Header("Player Deck")]
+    [Header("Player Decks")]
     [SerializeField] private List<PlayerDeck> playerDecks = new List<PlayerDeck>();
 
     [Header("Combatants")] 
     [SerializeField] private List<CombatEntity> allCombatants = new List<CombatEntity>();
-    [SerializeField] private List<CombatEntity> playerCombatants = new List<CombatEntity>();
+    [SerializeField] private List<PlayerEntity> playerCombatants = new List<PlayerEntity>();
     [SerializeField] private List<CombatEntity> allyCombatants = new List<CombatEntity>();
-    [SerializeField] private List<CombatEntity> enemyCombatants = new List<CombatEntity>();
+    [SerializeField] private List<NPCEntity> enemyCombatants = new List<NPCEntity>();
     [SerializeField] private List<CombatEntity> turnOrder = new  List<CombatEntity>();
     [SerializeField] private List<CombatEntity> targetList = new List<CombatEntity>();
     [SerializeField] private CombatEntity activeEntity = null;
@@ -37,26 +39,38 @@ public class CombatController : MonoBehaviour
     [Header("Tokens")]
     [SerializeField] private List<CombatToken> allTokens = new List<CombatToken>();
     
+    [Header("UI Objects")]
+    //
+    
     // Turn pause consts
     private const float TURN_ACTION_DELAY = 0.8f;
     private const float END_DELAY = 2.5f;
+    
+    // Consts
+    private const int BASE_CARD_DRAW = 5; 
 
     // Script Variables
     private PartyManager partyManager;
     private EnemyManager enemyManager;
     private TokenManager tokenManager;
+    private EnergyDisplayUI energyDisplayUI;
     
     // Character Specific Logic
     //private ImmuneBattleLogic immuneLogic;
     //private RicochetBattleLogic ricochetLogic;
 
-    private const int BASE_CARD_DRAW = 5; 
+    // Game Tracking Vars
+    private bool firstRound = true;
+    private bool canSelectCards = false;
+    private bool cardSelected = false;
+    private bool targetSelected = false;
 
     private void Awake()
     {
         partyManager = FindFirstObjectByType<PartyManager>();
         enemyManager = FindFirstObjectByType<EnemyManager>();
         tokenManager = FindFirstObjectByType<TokenManager>();
+        energyDisplayUI = FindAnyObjectByType<EnergyDisplayUI>();
         
         // Temp code for one-scene testing TODO remove when greater framework is created
         partyManager.GenerateTestParty();
@@ -69,7 +83,7 @@ public class CombatController : MonoBehaviour
         SetTurnOrder();
     }
     
-    void Start()
+    private void Start()
     {
         StartCoroutine(StartRoutine());
     }
@@ -92,7 +106,7 @@ public class CombatController : MonoBehaviour
         activeCharacters.AddRange(partyManager.GetCurrentParty());
 
         foreach (ActiveCharacter character in activeCharacters) {
-            CombatEntity tempEntity = new CombatEntity(character);
+            PlayerEntity tempEntity = new PlayerEntity(character, BASE_CARD_DRAW);
             
             //TODO Spawn character visuals
             
@@ -110,9 +124,11 @@ public class CombatController : MonoBehaviour
         enemies.AddRange(enemyManager.GetCurrentEnemies());
 
         foreach (Enemy enemy in enemies) {
-            CombatEntity tempEntity = new CombatEntity(enemy);
+            NPCEntity tempEntity = new NPCEntity(enemy);
             
             //TODO Spawn character visuals
+            
+            //TODO check if other enemies share a name in the combat and append a number to the end of their name
             
             allCombatants.Add(tempEntity);
             enemyCombatants.Add(tempEntity);
@@ -139,77 +155,77 @@ public class CombatController : MonoBehaviour
         }
     }
     
-    private PlayerDraw CreatePlayerDraw(CombatEntity ally, GameObject deckHolder)
+    private PlayerDraw CreatePlayerDraw(PlayerEntity player, GameObject deckHolder)
     {
         deckHolder.AddComponent<PlayerDraw>();
         PlayerDraw drawScript = deckHolder.GetComponent<PlayerDraw>();
-        drawScript.SetMyPlayer(ally);
+        drawScript.SetMyPlayer(player);
         
-        drawScript.InitializeDeck(ally.myCards);
+        drawScript.InitializeDeck(player.myCards);
         
         return drawScript;
     }
 
-    private PlayerHand CreatePlayerHand(CombatEntity ally, GameObject deckHolder)
+    private PlayerHand CreatePlayerHand(PlayerEntity player, GameObject deckHolder)
     {
         deckHolder.AddComponent<PlayerHand>();
         PlayerHand handScript = deckHolder.GetComponent<PlayerHand>();
-        handScript.SetMyPlayer(ally);
+        handScript.SetMyPlayer(player);
         
         return handScript;
     }
 
-    private PlayerDiscard CreatePlayerDiscard(CombatEntity ally, GameObject deckHolder)
+    private PlayerDiscard CreatePlayerDiscard(PlayerEntity player, GameObject deckHolder)
     {
         deckHolder.AddComponent<PlayerDiscard>();
         PlayerDiscard discardScript = deckHolder.GetComponent<PlayerDiscard>();
-        discardScript.SetMyPlayer(ally);
+        discardScript.SetMyPlayer(player);
 
         return discardScript;
     }
 
-    private PlayerExile CreatePlayerExile(CombatEntity ally, GameObject deckHolder)
+    private PlayerExile CreatePlayerExile(PlayerEntity player, GameObject deckHolder)
     {
         deckHolder.AddComponent<PlayerExile>();
         PlayerExile exileScript = deckHolder.GetComponent<PlayerExile>();
-        exileScript.SetMyPlayer(ally);
+        exileScript.SetMyPlayer(player);
         
         return exileScript;
     }
 
     private void SetTurnOrder()
     {
-        turnOrder.AddRange(playerCombatants);
+        foreach (var player in playerCombatants) {
+            turnOrder.Add(allCombatants.Find(t => t.name == player.name));
+        }
         foreach (var ally in allyCombatants) {
-            if (turnOrder.Contains(ally)) { return; }
+            if (ally.isPlayer) { continue; }
             turnOrder.Add(ally);
         }
-        turnOrder.AddRange(enemyCombatants);
-    }
-
-    private void FirstDraw()
-    {
-        foreach (var player in playerCombatants) {
-            player.myDeck.DrawCards(BASE_CARD_DRAW);
+        foreach (var enemy in enemyCombatants) {
+            turnOrder.Add(allCombatants.Find(t => t.name == enemy.name));
         }
     }
 
     private IEnumerator StartRoutine()
     {
+        print("Start Routine");
+        
         if (state == CombatState.Start) {
             // Eventually combatant initialization info will go here
-            FirstDraw();
-            
+            energyDisplayUI.DisplayEnergy(3, 3); //TODO update this
             state = CombatState.Combat;
             StartCoroutine(CombatRoutine());
             yield break;
         } else {
-            print("Start Routine called but the battle system is in the " + state + " state.");
+            print("Start Routine called but the combat system is in the " + state + " state.");
         }
     }
 
     private IEnumerator CombatRoutine()
     {
+        print("Combat Routine");
+        
         if (state == CombatState.Combat) {
             // Remove any dead combatants from the combat
             FixResources();
@@ -232,38 +248,219 @@ public class CombatController : MonoBehaviour
             if (activeEntity == null) {
                 activeEntity = turnOrder[0];
             } else {
+                print("active Entity is not null");
                 int activePosition = turnOrder.IndexOf(activeEntity) + 1;
                 if (activePosition >= turnOrder.Count) {
                     activePosition = 0;
                 }
                 activeEntity = turnOrder[activePosition];
             }
+            print(activeEntity.name);
 
             // Calls the appropriate turn routine
-            if (allyCombatants.Contains(activeEntity)) {
-                if (activeEntity.isPlayer) {
+            if (allyCombatants.Any(t => t.name == activeEntity.name)) {
+                if (playerCombatants.Any(t => t.name == activeEntity.name)) {
                     state = CombatState.PlayerTurn;
                     StartCoroutine(PlayerTurnRoutine());
                 } else {
                     state = CombatState.AllyTurn;
-                    //StartCoroutine(AllyTurnRoutine());
+                    //StartCoroutine(AllyTurnRoutine()); //TODO add ally functionality
                 }
             } else {
                 state = CombatState.EnemyTurn;
+                print("enemy turn reached");
                 //StartCoroutine(EnemyTurnRoutine());
             }
         } else {
-            print("Combat Routine called but the battle system is in the " + state + " state.");
+            print("Combat Routine called but the battle combat is in the " + state + " state.");
         }
     }
 
     private IEnumerator PlayerTurnRoutine()
     {
+        print("Player Turn Routine");
+        
         if (state == CombatState.PlayerTurn) {
+            PlayerEntity activePlayer = playerCombatants.Find(t => t.name == activeEntity.name);
             
+            activePlayer.DrawHand();
+            cardSelected = false;
+            
+            while (activePlayer.currentEnergy > 0) {
+                canSelectCards = true;
+                yield return new WaitUntil(() => cardSelected);
+                canSelectCards = false;
+
+                state = CombatState.Targeting;
+                //TODO eventually make this a variable so the active routine can be canceled for the purposes of changing selection
+                yield return StartCoroutine(TargetingRoutine());
+                cardSelected = false;
+            }
+            activePlayer.DiscardHand();
+            state = CombatState.Combat;
+            StartCoroutine(CombatRoutine());
         } else {
-            print("Player Turn Routine called but the battle system is in the " + state + " state.");
+            print("Player Turn Routine called but the combat system is in the " + state + " state.");
             yield break;
+        }
+    }
+
+    private IEnumerator TargetingRoutine()
+    {
+        print("Target Routine");
+        
+        if (state == CombatState.Targeting) {
+            PlayerEntity activePlayer = playerCombatants.Find(t => t.name == activeEntity.name);
+            CombatEntity targetEntity = null;
+            CombatCard selectedCard = activePlayer.selectedCard;
+            
+            TargetClicked(0, selectedCard.cardType == CardTypes.Attack); //TODO remove this code below and add proper targeting
+            yield return new WaitUntil(() => targetSelected);
+            
+            targetEntity = activePlayer.selectedTarget;
+            activePlayer.currentEnergy -= selectedCard.energyCost;
+            energyDisplayUI.ChangeEnergy(activePlayer.currentEnergy);
+            activePlayer.myDeck.hand.RemoveCardFromHand(selectedCard, false);
+
+            switch (selectedCard.cardType) {
+                case CardTypes.Attack:
+                    yield return StartCoroutine(AttackCardRoutine(activePlayer, targetEntity));
+                    
+                    break;
+                case CardTypes.Skill:
+                    yield return StartCoroutine(SkillCardRoutine(activePlayer, targetEntity));
+                    
+                    break;
+                case CardTypes.Power:
+                    //TODO Add Power routine
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            targetSelected = false;
+            state = CombatState.PlayerTurn;
+        } else {
+            print("Targeting Routine called but the combat system is in the " + state + " state.");
+            yield break;
+        }
+    }
+
+    private IEnumerator AttackCardRoutine(PlayerEntity user, CombatEntity target)
+    {
+        print(user.name + " used " + user.selectedCard.cardName + " against " + target.name);
+
+        CombatCard activeCard = user.selectedCard;
+        
+        // Declare damage values
+        int damage;
+        int damageModifier = 0;
+        float acc = 100;
+        int minDamageRange = 0;
+        int maxDamageRange = 0;
+        bool isLethal = false;
+        
+        // Set Min and Max damage values 
+        for (int i = 0; i < activeCard.cardValues.Count; i++) {
+            if (activeCard.cardValues[i].cardValue == CardValue.Damage) {
+                minDamageRange = activeCard.cardValues[i].minValue + damageModifier;
+                maxDamageRange = activeCard.cardValues[i].maxValue + damageModifier;
+            }
+        }
+        
+        // Determine damage amount
+        damage = Random.Range(minDamageRange, maxDamageRange+1);
+        
+        // Play combat animations // TODO call animations
+        
+        // Deal the damage to defense, or if the target has none, to HP
+        if (target.currentDefense > 0) {
+            // If the damage dealt is greater than the target's defense, deal the rest to their HP
+            if (damage > target.currentDefense) {
+                int overflowDamage = damage - target.currentDefense;
+                target.currentDefense = 0;
+                target.currentHealth -= overflowDamage;
+            } else {
+                target.currentDefense -= damage;
+            }
+        } else {
+            target.currentHealth -= damage;
+        }
+        print("Target HP: " + target.currentHealth);
+        if (target.currentHealth <= 0) {
+            isLethal = true;
+        }
+        
+        SaveResources();
+        yield break;
+    }
+
+    private IEnumerator SkillCardRoutine(PlayerEntity user, CombatEntity target)
+    {
+        print(user.name + " used " + user.selectedCard.cardName + " against " + target.name);
+        
+        CombatCard activeCard = user.selectedCard;
+        
+        // Declare defense values
+        int defense;
+        int defenseModifier = 0;
+        int minDefenseRange = 0;
+        int maxDefenseRange = 0;
+        
+        // Set Min and Max defense values 
+        for (int i = 0; i < activeCard.cardValues.Count; i++) {
+            if (activeCard.cardValues[i].cardValue == CardValue.Defense) {
+                minDefenseRange = activeCard.cardValues[i].minValue + defenseModifier;
+                maxDefenseRange = activeCard.cardValues[i].maxValue + defenseModifier;
+            }
+        }
+        
+        // Determine defense amount
+        defense = Random.Range(minDefenseRange, maxDefenseRange+1);
+        
+        // Declare heal values
+        int heal;
+        int healModifier = 0;
+        int minHealRange = 0;
+        int maxHealRange = 0;
+        
+        // Set Min and Max heal values 
+        for (int i = 0; i < activeCard.cardValues.Count; i++) {
+            if (activeCard.cardValues[i].cardValue == CardValue.Heal) {
+                minHealRange = activeCard.cardValues[i].minValue + healModifier;
+                maxHealRange = activeCard.cardValues[i].maxValue + healModifier;
+            }
+        }
+        
+        // Determine heal amount
+        heal = Random.Range(minHealRange, maxHealRange+1);
+        
+        // Play combat animations // TODO call animations
+        
+        // Apply Block and Healing
+        foreach (var cardValue in activeCard.cardValues) {
+            if (cardValue.cardValue == CardValue.Defense) {
+                target.currentDefense += defense;
+                if (target.currentDefense > target.maxDefense) {
+                    target.currentDefense = target.maxDefense;
+                }
+            }
+            if (cardValue.cardValue == CardValue.Heal) {
+                target.currentHealth += heal;
+                if (target.currentHealth > target.maxHealth) {
+                    target.currentHealth = target.maxHealth;
+                }
+            }
+        }
+        
+        yield break;
+    }
+
+    private void SaveResources()
+    {
+        for (var i = 0; i < allyCombatants.Count; i++) {
+            var ally = allyCombatants[i];
+            partyManager.SaveHealth(i, ally.currentHealth);
         }
     }
 
@@ -274,7 +471,7 @@ public class CombatController : MonoBehaviour
             if (allCombatants[i].currentHealth <= 0) {
                 deadCombatant = allCombatants[i];
                 if (!deadCombatant.isPlayer) {
-                    int enemyIndex = enemyCombatants.IndexOf(deadCombatant);
+                    int enemyIndex = enemyCombatants.FindIndex(t => t.name == deadCombatant.name);
                     //encounterFunds += enemyFunds[enemyIndex];
                 }
                 allCombatants.RemoveAt(i);
@@ -305,10 +502,26 @@ public class CombatController : MonoBehaviour
             }
         }
     }
+
+    public void CardClicked(int index)
+    {
+        PlayerEntity activePlayer = playerCombatants.Find(t => t.name == activeEntity.name);
+        List<CombatCard> cardsInHand = activePlayer.myDeck.hand.GetCardsInHand();
+        CombatCard card = cardsInHand[index];
+        activePlayer.selectedCard = card;
+        cardSelected = true;
+    }
+
+    public void TargetClicked(int index, bool isEnemy)
+    {
+        CombatEntity target = isEnemy ? enemyCombatants[index] : allyCombatants[index];
+        activeEntity.selectedTarget = target;
+        targetSelected = true;
+    }
 }
 
 [Serializable]
-public class CombatEntity
+public class CombatEntity //TODO extend this class to PlayerEntity so I can separate player only values from enemies
 {
     public string name;
     public Sprite portrait;
@@ -327,29 +540,67 @@ public class CombatEntity
     public int currentArmor;
     public int maxDefense = 99999;
     public int currentDefense;
-
-    public PlayerDeck myDeck;
+    
+    public CombatEntity selectedTarget;
     
     public List<CombatToken> activeTokens = new List<CombatToken>();
-    public List<CombatCard> myCards = new List<CombatCard>();
 
-    internal CombatEntity(ActiveCharacter playerCharacter)
+    internal CombatEntity()
+    {
+        
+    }
+}
+
+[Serializable]
+public class PlayerEntity : CombatEntity
+{
+    public int maxEnergy = 3;
+    public int currentEnergy = 3;
+    public int turnDraw;
+    
+    public CombatCard selectedCard;
+    
+    public PlayerDeck myDeck;
+    public List<CombatCard> myCards = new List<CombatCard>();
+    
+    internal PlayerEntity(ActiveCharacter playerCharacter, int draw)
     {
         isPlayer = true;
-
+        
         name = playerCharacter.activeAlias;
         maxHealth = playerCharacter.maxHealth;
         currentHealth = playerCharacter.currentHealth;
         maxArmor = playerCharacter.maxArmor;
         currentArmor = playerCharacter.currentArmor;
-
+        
         foreach (var card in playerCharacter.currentDeck) {
             CombatCard tempCard = new CombatCard(card);
             myCards.Add(tempCard);
         }
+        
+        turnDraw = draw;
     }
     
-    internal CombatEntity(Enemy enemy)
+    internal void LinkDeck(PlayerDeck deck)
+    {
+        myDeck = deck;
+    }
+
+    internal void DrawHand()
+    {
+        myDeck.DrawCards(turnDraw);
+    }
+
+    internal void DiscardHand()
+    {
+        myDeck.DiscardHand();
+    }
+}
+
+[Serializable]
+public class NPCEntity : CombatEntity
+{
+    internal NPCEntity(Enemy enemy)
     {
         isPlayer = false;
         
@@ -358,11 +609,6 @@ public class CombatEntity
         currentHealth = enemy.currentHealth;
         maxArmor = enemy.maxHealth;
         currentArmor = enemy.currentArmor;
-    }
-
-    internal void LinkDeck(PlayerDeck deck)
-    {
-        myDeck = deck;
     }
 }
 
@@ -476,6 +722,13 @@ public class PlayerDeck
             CombatCard drawnCard = draw.DrawTopCard();
             hand.AddCardToHand(drawnCard);
             
+        }
+    }
+
+    public void DiscardHand()
+    {
+        while (hand.GetHandCount() > 0) {
+            hand.RemoveCardFromHand(hand.GetCardsInHand()[hand.GetHandCount()-1], false);
         }
     }
 }

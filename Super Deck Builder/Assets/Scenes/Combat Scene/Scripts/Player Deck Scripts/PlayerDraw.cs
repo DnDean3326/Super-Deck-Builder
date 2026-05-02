@@ -3,10 +3,10 @@ using UnityEngine;
 
 public class PlayerDraw : MonoBehaviour
 {
-    private CombatEntity myPlayer;
+    private PlayerEntity myPlayer;
     [SerializeField] private List<CombatCard> cardsInDraw = new List<CombatCard>();
     
-    public void SetMyPlayer(CombatEntity player)
+    public void SetMyPlayer(PlayerEntity player)
     {
         myPlayer = player;
     }

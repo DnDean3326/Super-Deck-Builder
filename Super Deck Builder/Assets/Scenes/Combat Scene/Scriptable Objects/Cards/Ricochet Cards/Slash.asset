@@ -15,8 +15,15 @@ MonoBehaviour:
   cardName: Slash
   cardArt: {fileID: 0}
   cardType: 0
+  cardCharacter: 0
   energyCost: 1
-  cardMinValue: 2
-  cardMaxValue: 5
   repeatUses: 0
+  cardTargeting: 0
+  cardValueInfos:
+  - cardValue: 0
+    minValue: 2
+    maxValue: 5
+  extraCostInfos: []
+  selfTokenAppliedInfos: []
+  targetTokenAppliedInfos: []
   cardDescription: 'Deal 2-5 damage. '

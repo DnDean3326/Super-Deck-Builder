@@ -22,6 +22,7 @@ public class CardInfo : ScriptableObject
     public string cardDescription;
 }
 
+[System.Serializable]
 public class SCardValueInfo
 {
     public CardValue cardValue;
@@ -29,12 +30,14 @@ public class SCardValueInfo
     public int maxValue;
 }
 
+[System.Serializable]
 public class SExtraCostInfo
 {
     public List<ExtraCosts> extraCostType;
     public List<int> extraCost;
 }
 
+[System.Serializable]
 public class STokenAppliedInfo
 {
     public Token token;

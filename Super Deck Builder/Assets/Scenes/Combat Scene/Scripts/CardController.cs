@@ -19,7 +19,8 @@ public class CardController : MonoBehaviour, IPointerClickHandler, IPointerEnter
     
     public void OnPointerClick(PointerEventData eventData)
     {
-        print("OnPointerClick");
+        int index = gameObject.transform.GetSiblingIndex();
+        combatController.CardClicked(index);
     }
     
     public void OnPointerEnter(PointerEventData eventData)

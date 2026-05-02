@@ -15,8 +15,15 @@ MonoBehaviour:
   cardName: Defend
   cardArt: {fileID: 0}
   cardType: 1
+  cardCharacter: 0
   energyCost: 1
-  cardMinValue: 3
-  cardMaxValue: 3
   repeatUses: 0
+  cardTargeting: 0
+  cardValueInfos:
+  - cardValue: 1
+    minValue: 3
+    maxValue: 3
+  extraCostInfos: []
+  selfTokenAppliedInfos: []
+  targetTokenAppliedInfos: []
   cardDescription: Gain 3 Defense.
