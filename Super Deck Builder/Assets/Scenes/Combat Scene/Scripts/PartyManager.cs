@@ -159,6 +159,7 @@ public class ActiveCard
     public CardTypes cardType;
     public int energyCost;
     public int repeatUses;
+    public CardTargeting cardTargeting;
     
     public List<ExtraCostInfo> extraCosts = new List<ExtraCostInfo>();
     public List<CardValueInfo> cardValues = new List<CardValueInfo>();
@@ -176,6 +177,7 @@ public class ActiveCard
         cardType = cardInfo.cardType;
         energyCost = cardInfo.energyCost;
         repeatUses = cardInfo.repeatUses;
+        cardTargeting = cardInfo.cardTargeting;
         cardDescription = cardInfo.cardDescription;
         cardPrefab = playerInfo.characterCardPrefab;
 

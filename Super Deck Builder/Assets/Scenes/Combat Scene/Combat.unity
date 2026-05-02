@@ -166,10 +166,33 @@ MonoBehaviour:
   state: 0
   playerDecks: []
   allCombatants: []
+  playerCombatants: []
   allyCombatants: []
   enemyCombatants: []
   turnOrder: []
   targetList: []
+  activeEntity:
+    name: 
+    portrait: {fileID: 0}
+    isPlayer: 0
+    myFirstTurn: 0
+    wasDamagedLastTurn: 0
+    damagedBy: 0
+    activeAbilityType: 
+    target: 0
+    maxHealth: 0
+    currentHealth: 0
+    maxArmor: 0
+    currentArmor: 0
+    maxDefense: 0
+    currentDefense: 0
+    myDeck:
+      draw: {fileID: 0}
+      hand: {fileID: 0}
+      discard: {fileID: 0}
+      exile: {fileID: 0}
+    activeTokens: []
+    myCards: []
   allTokens: []
 --- !u!1 &831777883
 GameObject:
@@ -490,7 +513,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 960581576}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 

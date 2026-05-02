@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -10,6 +11,7 @@ public class CombatController : MonoBehaviour
         Start,
         Combat,
         PlayerTurn,
+        AllyTurn,
         EnemyTurn,
         Targeting, // Unsure if this one will be needed with the simpler targeting system
         TurnEnd,
@@ -25,14 +27,21 @@ public class CombatController : MonoBehaviour
 
     [Header("Combatants")] 
     [SerializeField] private List<CombatEntity> allCombatants = new List<CombatEntity>();
+    [SerializeField] private List<CombatEntity> playerCombatants = new List<CombatEntity>();
     [SerializeField] private List<CombatEntity> allyCombatants = new List<CombatEntity>();
     [SerializeField] private List<CombatEntity> enemyCombatants = new List<CombatEntity>();
-    [SerializeField] private List<CombatEntity> turnOrder = new  List<CombatEntity>(); //Unsure if this will be needed
+    [SerializeField] private List<CombatEntity> turnOrder = new  List<CombatEntity>();
     [SerializeField] private List<CombatEntity> targetList = new List<CombatEntity>();
+    [SerializeField] private CombatEntity activeEntity = null;
     
     [Header("Tokens")]
     [SerializeField] private List<CombatToken> allTokens = new List<CombatToken>();
+    
+    // Turn pause consts
+    private const float TURN_ACTION_DELAY = 0.8f;
+    private const float END_DELAY = 2.5f;
 
+    // Script Variables
     private PartyManager partyManager;
     private EnemyManager enemyManager;
     private TokenManager tokenManager;
@@ -49,7 +58,7 @@ public class CombatController : MonoBehaviour
         enemyManager = FindFirstObjectByType<EnemyManager>();
         tokenManager = FindFirstObjectByType<TokenManager>();
         
-        // Temp code for one-scene testing
+        // Temp code for one-scene testing TODO remove when greater framework is created
         partyManager.GenerateTestParty();
         enemyManager.GenerateTestEncounter();
         
@@ -57,11 +66,12 @@ public class CombatController : MonoBehaviour
         CreatePartyEntities();
         CreateEnemyEntities();
         CreatePlayerDecks();
+        SetTurnOrder();
     }
     
     void Start()
     {
-        FirstDraw();
+        StartCoroutine(StartRoutine());
     }
     
     private void InitializeBattleTokens()
@@ -88,6 +98,9 @@ public class CombatController : MonoBehaviour
             
             allCombatants.Add(tempEntity);
             allyCombatants.Add(tempEntity);
+            if (tempEntity.isPlayer) {
+                playerCombatants.Add(tempEntity);
+            }
         }
     }
 
@@ -108,20 +121,20 @@ public class CombatController : MonoBehaviour
 
     private void CreatePlayerDecks()
     {
-        for (int i = 0; i < allyCombatants.Count; i++) {
-            var ally = allyCombatants[i];
+        for (int i = 0; i < playerCombatants.Count; i++) {
+            var player = playerCombatants[i];
             
             GameObject tempDeckHolder = new GameObject { name = "Player " + (i + 1) + " Deck" };
             tempDeckHolder.transform.SetParent(this.transform);
 
-            var tempDraw = CreatePlayerDraw(ally, tempDeckHolder);
-            var tempHand = CreatePlayerHand(ally, tempDeckHolder);
-            var tempDiscard = CreatePlayerDiscard(ally, tempDeckHolder);
-            var tempExile = CreatePlayerExile(ally, tempDeckHolder);
+            var tempDraw = CreatePlayerDraw(player, tempDeckHolder);
+            var tempHand = CreatePlayerHand(player, tempDeckHolder);
+            var tempDiscard = CreatePlayerDiscard(player, tempDeckHolder);
+            var tempExile = CreatePlayerExile(player, tempDeckHolder);
 
             PlayerDeck tempDeck = new PlayerDeck(tempDraw, tempHand, tempDiscard, tempExile);
             tempDeck.ReshuffleDeck();
-            ally.LinkDeck(tempDeck);
+            player.LinkDeck(tempDeck);
             playerDecks.Add(tempDeck);
         }
     }
@@ -164,11 +177,131 @@ public class CombatController : MonoBehaviour
         return exileScript;
     }
 
+    private void SetTurnOrder()
+    {
+        turnOrder.AddRange(playerCombatants);
+        foreach (var ally in allyCombatants) {
+            if (turnOrder.Contains(ally)) { return; }
+            turnOrder.Add(ally);
+        }
+        turnOrder.AddRange(enemyCombatants);
+    }
+
     private void FirstDraw()
     {
-        foreach (var ally in allyCombatants) {
-            if (ally.isPlayer) {
-                ally.myDeck.DrawCards(BASE_CARD_DRAW);
+        foreach (var player in playerCombatants) {
+            player.myDeck.DrawCards(BASE_CARD_DRAW);
+        }
+    }
+
+    private IEnumerator StartRoutine()
+    {
+        if (state == CombatState.Start) {
+            // Eventually combatant initialization info will go here
+            FirstDraw();
+            
+            state = CombatState.Combat;
+            StartCoroutine(CombatRoutine());
+            yield break;
+        } else {
+            print("Start Routine called but the battle system is in the " + state + " state.");
+        }
+    }
+
+    private IEnumerator CombatRoutine()
+    {
+        if (state == CombatState.Combat) {
+            // Remove any dead combatants from the combat
+            FixResources();
+            RemoveDeadCombatants();
+            
+            // If no party members remain -> battle is lost
+            if (playerCombatants.Count <= 0) {
+                state = CombatState.Defeat;
+                yield return new WaitForSeconds(TURN_ACTION_DELAY);  // wait a few seconds
+                print("GAME OVER! \n Go to game over screen.");
+            }
+            // If no enemies remain -> battle is won
+            if (enemyCombatants.Count <= 0) {
+                state = CombatState.Victory;
+                yield return new WaitForSeconds(END_DELAY);  // wait a few seconds
+                print("You win! \n Restart to play again.");
+            }
+
+            // Determine which entity acts next
+            if (activeEntity == null) {
+                activeEntity = turnOrder[0];
+            } else {
+                int activePosition = turnOrder.IndexOf(activeEntity) + 1;
+                if (activePosition >= turnOrder.Count) {
+                    activePosition = 0;
+                }
+                activeEntity = turnOrder[activePosition];
+            }
+
+            // Calls the appropriate turn routine
+            if (allyCombatants.Contains(activeEntity)) {
+                if (activeEntity.isPlayer) {
+                    state = CombatState.PlayerTurn;
+                    StartCoroutine(PlayerTurnRoutine());
+                } else {
+                    state = CombatState.AllyTurn;
+                    //StartCoroutine(AllyTurnRoutine());
+                }
+            } else {
+                state = CombatState.EnemyTurn;
+                //StartCoroutine(EnemyTurnRoutine());
+            }
+        } else {
+            print("Combat Routine called but the battle system is in the " + state + " state.");
+        }
+    }
+
+    private IEnumerator PlayerTurnRoutine()
+    {
+        if (state == CombatState.PlayerTurn) {
+            
+        } else {
+            print("Player Turn Routine called but the battle system is in the " + state + " state.");
+            yield break;
+        }
+    }
+
+    private void RemoveDeadCombatants()
+    {
+        for (int i = 0; allCombatants.Count > i; i++) {
+            CombatEntity deadCombatant = null;
+            if (allCombatants[i].currentHealth <= 0) {
+                deadCombatant = allCombatants[i];
+                if (!deadCombatant.isPlayer) {
+                    int enemyIndex = enemyCombatants.IndexOf(deadCombatant);
+                    //encounterFunds += enemyFunds[enemyIndex];
+                }
+                allCombatants.RemoveAt(i);
+            }
+            if (deadCombatant != null) {
+                //yield return new WaitForSeconds(DEATH_DELAY); TODO Add some kind of delay here
+            }
+        }
+    }
+
+    private void FixResources()
+    {
+        foreach (var t in allCombatants) {
+            if (t.currentHealth < 0) {
+                t.currentHealth = 0;
+            } else if (t.currentHealth > t.maxHealth) {
+                t.currentHealth = t.maxHealth;
+            }
+            if (t.currentDefense < 0) {
+                t.currentDefense = 0;
+            } else if (t.currentDefense > t.maxDefense) {
+                t.currentDefense = t.maxDefense;
+            }
+            if (t.currentArmor < 0) {
+                t.currentArmor = 0;
+            } else if (t.currentArmor > t.maxArmor) {
+                t.currentArmor = t.maxArmor;
             }
         }
     }
@@ -244,7 +377,7 @@ public class CombatToken
     public int tokenCap;
     public int tokenCount;
     
-    public List<String> tokenInverses = new List<String>();
+    public List<string> tokenInverses = new List<string>();
 
     public string tokenDescription;
 
@@ -271,6 +404,7 @@ public class CombatCard
     public CardTypes cardType;
     public int energyCost;
     public int repeatUses;
+    public CardTargeting cardTargeting;
 
     public List<CardValueInfo> cardValues = new List<CardValueInfo>();
     public List<ExtraCostInfo> extraCosts = new List<ExtraCostInfo>();
@@ -279,7 +413,8 @@ public class CombatCard
     
     public string cardDescription;
     
-    [FormerlySerializedAs("cardPrefab")] public GameObject cardVisuals;
+    public GameObject cardVisuals;
+    public CardController myCardController;
 
     internal CombatCard(ActiveCard activeCard)
     {
@@ -288,6 +423,7 @@ public class CombatCard
         cardType = activeCard.cardType;
         energyCost = activeCard.energyCost;
         repeatUses = activeCard.repeatUses;
+        cardTargeting = activeCard.cardTargeting;
         cardDescription = activeCard.cardDescription;
         cardVisuals = activeCard.cardPrefab;
         
@@ -303,6 +439,8 @@ public class CombatCard
         if (activeCard.targetTokensApplied != null) {
             targetTokensApplied.AddRange(activeCard.targetTokensApplied);
         }
+        
+        myCardController = cardVisuals.GetComponent<CardController>();
     }
 }
 
@@ -337,6 +475,7 @@ public class PlayerDeck
             }
             CombatCard drawnCard = draw.DrawTopCard();
             hand.AddCardToHand(drawnCard);
+            
         }
     }
 }

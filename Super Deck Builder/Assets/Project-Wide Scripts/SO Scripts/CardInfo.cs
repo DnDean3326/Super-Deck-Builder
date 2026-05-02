@@ -11,6 +11,7 @@ public class CardInfo : ScriptableObject
     public CardCharacter cardCharacter;
     public int energyCost;
     public int repeatUses;
+    public CardTargeting cardTargeting;
     
     public List<SCardValueInfo> cardValueInfos = new List<SCardValueInfo>();
     public List<SExtraCostInfo> extraCostInfos = new List<SExtraCostInfo>();

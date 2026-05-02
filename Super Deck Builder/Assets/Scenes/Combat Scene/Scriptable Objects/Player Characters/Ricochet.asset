@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerInfo
   characterName: Trevon
   characterAlias: Ricochet
-  characterCardPrefab: {fileID: 6834075367253044919, guid: 749d64e560c6d3247a22d56924771469, type: 3}
+  characterCardPrefab: {fileID: 1337935076611061204, guid: 749d64e560c6d3247a22d56924771469, type: 3}
   baseHealth: 60
   baseArmor: 2
   startingCards:

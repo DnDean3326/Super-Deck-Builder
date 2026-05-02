@@ -33,6 +33,13 @@ public enum ExtraCosts
     Ammo
 }
 
+public enum CardTargeting
+{
+    Enemies,
+    Allies,
+    Self
+}
+
 public enum EnemyIntents
 {
     Attack,
