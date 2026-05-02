@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.Serialization;
 using Random = UnityEngine.Random;
 
 public class CombatController : MonoBehaviour
@@ -13,8 +12,7 @@ public class CombatController : MonoBehaviour
         Start,
         Combat,
         PlayerTurn,
-        AllyTurn,
-        EnemyTurn,
+        NpcTurn,
         Targeting, // Unsure if this one will be needed with the simpler targeting system
         TurnEnd,
         Victory,
@@ -31,10 +29,10 @@ public class CombatController : MonoBehaviour
     [SerializeField] private List<CombatEntity> allCombatants = new List<CombatEntity>();
     [SerializeField] private List<PlayerEntity> playerCombatants = new List<PlayerEntity>();
     [SerializeField] private List<CombatEntity> allyCombatants = new List<CombatEntity>();
-    [SerializeField] private List<NPCEntity> enemyCombatants = new List<NPCEntity>();
+    [SerializeField] private List<NpcEntity> enemyCombatants = new List<NpcEntity>();
     [SerializeField] private List<CombatEntity> turnOrder = new  List<CombatEntity>();
     [SerializeField] private List<CombatEntity> targetList = new List<CombatEntity>();
-    [SerializeField] private CombatEntity activeEntity = null;
+    [SerializeField] private CombatEntity activeEntity;
     
     [Header("Tokens")]
     [SerializeField] private List<CombatToken> allTokens = new List<CombatToken>();
@@ -124,7 +122,7 @@ public class CombatController : MonoBehaviour
         enemies.AddRange(enemyManager.GetCurrentEnemies());
 
         foreach (Enemy enemy in enemies) {
-            NPCEntity tempEntity = new NPCEntity(enemy);
+            NpcEntity tempEntity = new NpcEntity(enemy);
             
             //TODO Spawn character visuals
             
@@ -213,10 +211,9 @@ public class CombatController : MonoBehaviour
         
         if (state == CombatState.Start) {
             // Eventually combatant initialization info will go here
-            energyDisplayUI.DisplayEnergy(3, 3); //TODO update this
             state = CombatState.Combat;
             StartCoroutine(CombatRoutine());
-            yield break;
+            yield return new WaitForSeconds(1f);
         } else {
             print("Start Routine called but the combat system is in the " + state + " state.");
         }
@@ -256,20 +253,24 @@ public class CombatController : MonoBehaviour
                 activeEntity = turnOrder[activePosition];
             }
             print(activeEntity.name);
+            yield return new WaitForSeconds(1f);
 
             // Calls the appropriate turn routine
             if (allyCombatants.Any(t => t.name == activeEntity.name)) {
                 if (playerCombatants.Any(t => t.name == activeEntity.name)) {
                     state = CombatState.PlayerTurn;
                     StartCoroutine(PlayerTurnRoutine());
+                    yield break;
                 } else {
-                    state = CombatState.AllyTurn;
-                    //StartCoroutine(AllyTurnRoutine()); //TODO add ally functionality
+                    state = CombatState.NpcTurn;
+                    StartCoroutine(NpcTurnRoutine()); //TODO add ally functionality
+                    yield break;
                 }
             } else {
-                state = CombatState.EnemyTurn;
-                print("enemy turn reached");
-                //StartCoroutine(EnemyTurnRoutine());
+                state = CombatState.NpcTurn;
+                print("Enemy turn reached");
+                StartCoroutine(NpcTurnRoutine());
+                yield break;
             }
         } else {
             print("Combat Routine called but the battle combat is in the " + state + " state.");
@@ -282,6 +283,7 @@ public class CombatController : MonoBehaviour
         
         if (state == CombatState.PlayerTurn) {
             PlayerEntity activePlayer = playerCombatants.Find(t => t.name == activeEntity.name);
+            activePlayer.DisplayCharacterEnergy(energyDisplayUI);
             
             activePlayer.DrawHand();
             cardSelected = false;
@@ -297,8 +299,10 @@ public class CombatController : MonoBehaviour
                 cardSelected = false;
             }
             activePlayer.DiscardHand();
+            activePlayer.HideEnergyUI(energyDisplayUI);
             state = CombatState.Combat;
             StartCoroutine(CombatRoutine());
+            yield return new WaitForSeconds(1f);
         } else {
             print("Player Turn Routine called but the combat system is in the " + state + " state.");
             yield break;
@@ -318,8 +322,7 @@ public class CombatController : MonoBehaviour
             yield return new WaitUntil(() => targetSelected);
             
             targetEntity = activePlayer.selectedTarget;
-            activePlayer.currentEnergy -= selectedCard.energyCost;
-            energyDisplayUI.ChangeEnergy(activePlayer.currentEnergy);
+            activePlayer.UpdateEnergyUI(energyDisplayUI, selectedCard.energyCost);
             activePlayer.myDeck.hand.RemoveCardFromHand(selectedCard, false);
 
             switch (selectedCard.cardType) {
@@ -340,10 +343,193 @@ public class CombatController : MonoBehaviour
 
             targetSelected = false;
             state = CombatState.PlayerTurn;
+            yield return new WaitForSeconds(1f);
         } else {
             print("Targeting Routine called but the combat system is in the " + state + " state.");
             yield break;
         }
+    }
+
+    private IEnumerator NpcTurnRoutine()
+    {
+        print("NPC Turn Routine");
+
+        if (state == CombatState.NpcTurn) {
+            NpcEntity activeEnemy = enemyCombatants.Find(t => t.name == activeEntity.name);
+            NpcAbility activeAbility = activeEnemy.RetrieveAbility();
+            CombatEntity target;
+
+            if (activeAbility.targetGroup == NpcBrain.TargetFaction.Party) {
+                target = allyCombatants[Random.Range(0, allyCombatants.Count)];
+            } else {
+                target = enemyCombatants[Random.Range(0, enemyCombatants.Count)];
+            }
+
+            if (activeAbility.relevantIntents.Any(t => t == EnemyIntents.Attack)) {
+                yield return StartCoroutine(NpcAttackRoutine(activeAbility, activeEnemy, target));
+            } else if (activeAbility.relevantIntents.Any(t => t == EnemyIntents.Defend)) {
+                yield return StartCoroutine(NpcDefendRoutine(activeAbility, activeEnemy, target));
+            } else {
+                //yield return StartCoroutine();
+            }
+
+            state = CombatState.Combat;
+            StartCoroutine(CombatRoutine());
+            yield return new WaitForSeconds(1f);
+        } else {
+            print("NPC Turn Routine called but the combat system is in the " + state + " state.");
+            yield break;
+        }
+    }
+
+    private IEnumerator NpcAttackRoutine(NpcAbility activeAbility, NpcEntity user, CombatEntity target)
+    {
+        print(user.name + " used " + activeAbility.abilityName + " against " + target.name);
+        
+        // Declare damage values
+        int damageModifier = 0;
+        float acc = 100;
+        int minDamageRange = 0;
+        int maxDamageRange = 0;
+        bool isLethal = false;
+        
+        // Set Min and Max damage values 
+        for (int i = 0; i < activeAbility.abilityValues.Count; i++) {
+            if (activeAbility.abilityValues[i].cardValue == CardValue.Damage) {
+                minDamageRange = activeAbility.abilityValues[i].minValue + damageModifier;
+                maxDamageRange = activeAbility.abilityValues[i].maxValue + damageModifier;
+            }
+        }
+
+        // Determine damage amount
+        int damage = Random.Range(minDamageRange, maxDamageRange+1);
+        
+        // Declare defense values
+        int defenseModifier = 0;
+        int minDefenseRange = 0;
+        int maxDefenseRange = 0;
+        
+        // Set Min and Max defense values 
+        for (int i = 0; i < activeAbility.abilityValues.Count; i++) {
+            if (activeAbility.abilityValues[i].cardValue == CardValue.Defense) {
+                minDefenseRange = activeAbility.abilityValues[i].minValue + defenseModifier;
+                maxDefenseRange = activeAbility.abilityValues[i].maxValue + defenseModifier;
+            }
+        }
+
+        // Determine defense amount
+        int defense = Random.Range(minDefenseRange, maxDefenseRange+1);
+
+        // Declare heal values
+        int healModifier = 0;
+        int minHealRange = 0;
+        int maxHealRange = 0;
+        
+        // Set Min and Max heal values 
+        for (int i = 0; i < activeAbility.abilityValues.Count; i++) {
+            if (activeAbility.abilityValues[i].cardValue == CardValue.Heal) {
+                minHealRange = activeAbility.abilityValues[i].minValue + healModifier;
+                maxHealRange = activeAbility.abilityValues[i].maxValue + healModifier;
+            }
+        }
+
+        // Determine heal amount
+        int heal = Random.Range(minHealRange, maxHealRange+1);
+        
+        // Play combat animations // TODO call animations
+        
+        // Apply Block and Healing
+        foreach (var abilityValue in activeAbility.abilityValues) {
+            if (abilityValue.cardValue == CardValue.Defense) {
+                user.currentDefense += defense;
+                if (user.currentDefense > user.maxDefense) {
+                    user.currentDefense = user.maxDefense;
+                }
+            }
+            if (abilityValue.cardValue == CardValue.Heal) {
+                user.currentHealth += heal;
+                if (user.currentHealth > user.maxHealth) {
+                    user.currentHealth = user.maxHealth;
+                }
+            }
+        }
+        
+        // Deal the damage to defense, or if the target has none, to HP
+        if (target.currentDefense > 0) {
+            // If the damage dealt is greater than the target's defense, deal the rest to their HP
+            if (damage > target.currentDefense) {
+                int overflowDamage = damage - target.currentDefense;
+                target.currentDefense = 0;
+                target.currentHealth -= overflowDamage;
+            } else {
+                target.currentDefense -= damage;
+            }
+        } else {
+            target.currentHealth -= damage;
+        }
+        print("Target HP: " + target.currentHealth);
+        if (target.currentHealth <= 0) {
+            isLethal = true;
+        }
+        
+        SaveResources();
+        yield break;
+    }
+
+    private IEnumerator NpcDefendRoutine(NpcAbility activeAbility, NpcEntity user, CombatEntity target)
+    {
+        print(user.name + " used " + activeAbility.abilityName + " against " + target.name);
+        
+        // Declare defense values
+        int defenseModifier = 0;
+        int minDefenseRange = 0;
+        int maxDefenseRange = 0;
+        
+        // Set Min and Max defense values 
+        for (int i = 0; i < activeAbility.abilityValues.Count; i++) {
+            if (activeAbility.abilityValues[i].cardValue == CardValue.Defense) {
+                minDefenseRange = activeAbility.abilityValues[i].minValue + defenseModifier;
+                maxDefenseRange = activeAbility.abilityValues[i].maxValue + defenseModifier;
+            }
+        }
+
+        // Determine defense amount
+        int defense = Random.Range(minDefenseRange, maxDefenseRange+1);
+
+        // Declare heal values
+        int healModifier = 0;
+        int minHealRange = 0;
+        int maxHealRange = 0;
+        
+        // Set Min and Max heal values 
+        for (int i = 0; i < activeAbility.abilityValues.Count; i++) {
+            if (activeAbility.abilityValues[i].cardValue == CardValue.Heal) {
+                minHealRange = activeAbility.abilityValues[i].minValue + healModifier;
+                maxHealRange = activeAbility.abilityValues[i].maxValue + healModifier;
+            }
+        }
+
+        // Determine heal amount
+        int heal = Random.Range(minHealRange, maxHealRange+1);
+        
+        // Apply Block and Healing
+        foreach (var abilityValue in activeAbility.abilityValues) {
+            if (abilityValue.cardValue == CardValue.Defense) {
+                target.currentDefense += defense;
+                if (target.currentDefense > target.maxDefense) {
+                    target.currentDefense = target.maxDefense;
+                }
+            }
+            if (abilityValue.cardValue == CardValue.Heal) {
+                target.currentHealth += heal;
+                if (target.currentHealth > target.maxHealth) {
+                    target.currentHealth = target.maxHealth;
+                }
+            }
+        }
+        
+        SaveResources();
+        yield break;
     }
 
     private IEnumerator AttackCardRoutine(PlayerEntity user, CombatEntity target)
@@ -353,7 +539,6 @@ public class CombatController : MonoBehaviour
         CombatCard activeCard = user.selectedCard;
         
         // Declare damage values
-        int damage;
         int damageModifier = 0;
         float acc = 100;
         int minDamageRange = 0;
@@ -367,10 +552,10 @@ public class CombatController : MonoBehaviour
                 maxDamageRange = activeCard.cardValues[i].maxValue + damageModifier;
             }
         }
-        
+
         // Determine damage amount
-        damage = Random.Range(minDamageRange, maxDamageRange+1);
-        
+        int damage = Random.Range(minDamageRange, maxDamageRange+1);
+
         // Play combat animations // TODO call animations
         
         // Deal the damage to defense, or if the target has none, to HP
@@ -402,7 +587,6 @@ public class CombatController : MonoBehaviour
         CombatCard activeCard = user.selectedCard;
         
         // Declare defense values
-        int defense;
         int defenseModifier = 0;
         int minDefenseRange = 0;
         int maxDefenseRange = 0;
@@ -414,12 +598,11 @@ public class CombatController : MonoBehaviour
                 maxDefenseRange = activeCard.cardValues[i].maxValue + defenseModifier;
             }
         }
-        
+
         // Determine defense amount
-        defense = Random.Range(minDefenseRange, maxDefenseRange+1);
-        
+        int defense = Random.Range(minDefenseRange, maxDefenseRange+1);
+
         // Declare heal values
-        int heal;
         int healModifier = 0;
         int minHealRange = 0;
         int maxHealRange = 0;
@@ -431,10 +614,10 @@ public class CombatController : MonoBehaviour
                 maxHealRange = activeCard.cardValues[i].maxValue + healModifier;
             }
         }
-        
+
         // Determine heal amount
-        heal = Random.Range(minHealRange, maxHealRange+1);
-        
+        int heal = Random.Range(minHealRange, maxHealRange+1);
+
         // Play combat animations // TODO call animations
         
         // Apply Block and Healing
@@ -453,6 +636,7 @@ public class CombatController : MonoBehaviour
             }
         }
         
+        SaveResources();
         yield break;
     }
 
@@ -505,6 +689,7 @@ public class CombatController : MonoBehaviour
 
     public void CardClicked(int index)
     {
+        if (!canSelectCards) { return; }
         PlayerEntity activePlayer = playerCombatants.Find(t => t.name == activeEntity.name);
         List<CombatCard> cardsInHand = activePlayer.myDeck.hand.GetCardsInHand();
         CombatCard card = cardsInHand[index];
@@ -532,7 +717,6 @@ public class CombatEntity //TODO extend this class to PlayerEntity so I can sepa
     
     public string activeAbilityType;
     public int target;
-    //public Ability activeAbility;
     
     public int maxHealth;
     public int currentHealth;
@@ -545,10 +729,7 @@ public class CombatEntity //TODO extend this class to PlayerEntity so I can sepa
     
     public List<CombatToken> activeTokens = new List<CombatToken>();
 
-    internal CombatEntity()
-    {
-        
-    }
+    internal CombatEntity() {}
 }
 
 [Serializable]
@@ -580,6 +761,24 @@ public class PlayerEntity : CombatEntity
         
         turnDraw = draw;
     }
+
+    internal void DisplayCharacterEnergy(EnergyDisplayUI energyUI)
+    {
+        currentEnergy = maxEnergy;
+        energyUI.DisplayEnergy(currentEnergy, maxEnergy);
+    }
+
+    internal void UpdateEnergyUI(EnergyDisplayUI energyUI, int energyConsumed)
+    {
+        currentEnergy -= energyConsumed;
+        if (currentEnergy < 0 ) { currentEnergy = 0; }
+        energyUI.ChangeEnergy(currentEnergy, maxEnergy);
+    }
+
+    internal void HideEnergyUI(EnergyDisplayUI energyUI)
+    {
+        energyUI.HideEnergy();
+    }
     
     internal void LinkDeck(PlayerDeck deck)
     {
@@ -598,9 +797,12 @@ public class PlayerEntity : CombatEntity
 }
 
 [Serializable]
-public class NPCEntity : CombatEntity
+public class NpcEntity : CombatEntity
 {
-    internal NPCEntity(Enemy enemy)
+    private int takenTurns = 0;
+    private NpcBrain myBrain;
+    
+    internal NpcEntity(Enemy enemy)
     {
         isPlayer = false;
         
@@ -609,6 +811,19 @@ public class NPCEntity : CombatEntity
         currentHealth = enemy.currentHealth;
         maxArmor = enemy.maxHealth;
         currentArmor = enemy.currentArmor;
+        myBrain = enemy.myBrain;
+    }
+
+    internal void DisplayIntent()
+    {
+        
+    }
+
+    internal NpcAbility RetrieveAbility()
+    {
+        NpcAbility turnAbility = myBrain.npcAbilities[takenTurns % myBrain.npcAbilities.Count];
+        takenTurns++;
+        return turnAbility;
     }
 }
 

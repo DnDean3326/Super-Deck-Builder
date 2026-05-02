@@ -8,6 +8,8 @@ public class EnemyInfo : ScriptableObject
     public int baseHealth;
     public int baseArmor;
     
+    public NpcBrain myBrain;
+    
     [TextArea(15,20)]
     public string enemyDescription;
 }

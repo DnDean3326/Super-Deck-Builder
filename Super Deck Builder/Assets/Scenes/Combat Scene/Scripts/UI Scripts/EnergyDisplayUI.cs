@@ -25,7 +25,7 @@ public class EnergyDisplayUI : MonoBehaviour
     public void DisplayEnergy(int currentEnergy, int maxEnergy)
     {
         gameObject.SetActive(true);
-        maxEnergyText += maxEnergy;
+        maxEnergyText = baseText + maxEnergy;
         myText.text = currentEnergy + maxEnergyText;
     }
 

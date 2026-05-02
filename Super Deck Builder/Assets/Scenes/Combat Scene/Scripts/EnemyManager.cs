@@ -60,6 +60,8 @@ public class Enemy
     public int currentHealth;
     public int maxArmor;
     public int currentArmor;
+    
+    public NpcBrain myBrain;
 
     public Enemy(EnemyInfo enemyInfo)
     {
@@ -68,5 +70,6 @@ public class Enemy
         currentHealth = maxHealth;
         maxArmor = enemyInfo.baseArmor;
         currentArmor = maxArmor;
+        myBrain = enemyInfo.myBrain;
     }
 }
