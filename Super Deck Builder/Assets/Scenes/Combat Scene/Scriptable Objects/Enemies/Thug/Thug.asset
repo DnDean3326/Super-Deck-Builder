@@ -15,4 +15,6 @@ MonoBehaviour:
   enemyName: Thug
   baseHealth: 25
   baseArmor: 0
+  myBrain: {fileID: 11400000, guid: d756cd9b60bb6dd4ebe8ddfa7dfcf575, type: 2}
+  enemyBattleVisualPrefab: {fileID: 2245816076773169841, guid: 46422211e5376d94584feab6adc2d593, type: 3}
   enemyDescription: 

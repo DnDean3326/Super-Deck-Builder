@@ -113,6 +113,7 @@ public class ActiveCharacter
     public int maxArmor;
     public int currentArmor;
     
+    public GameObject allyBattleVisualPrefab;
     public List<ActiveCard> currentDeck = new List<ActiveCard>();
 
     public ActiveCharacter(PlayerInfo playerInfo)
@@ -125,6 +126,7 @@ public class ActiveCharacter
         currentHealth = maxHealth;
         maxArmor = playerInfo.baseArmor;
         currentArmor = maxArmor;
+        allyBattleVisualPrefab = playerInfo.allyBattleVisualPrefab;
         
         AddStarterCards(playerInfo.startingCards, playerInfo);
     }
@@ -139,6 +141,7 @@ public class ActiveCharacter
         currentHealth = maxHealth;
         maxArmor = playerInfo.baseArmor;
         currentArmor = maxArmor;
+        allyBattleVisualPrefab = playerInfo.allyBattleVisualPrefab;
         
         AddStarterCards(playerInfo.startingCards, playerInfo);
     }

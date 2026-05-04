@@ -9,6 +9,7 @@ public class EnemyInfo : ScriptableObject
     public int baseArmor;
     
     public NpcBrain myBrain;
+    public GameObject enemyBattleVisualPrefab;
     
     [TextArea(15,20)]
     public string enemyDescription;

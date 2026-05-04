@@ -7,6 +7,7 @@ public class PlayerInfo : ScriptableObject
     public string characterName;
     public string characterAlias;
     public GameObject characterCardPrefab;
+    public GameObject allyBattleVisualPrefab;
     
     public int baseHealth;
     public int baseArmor;

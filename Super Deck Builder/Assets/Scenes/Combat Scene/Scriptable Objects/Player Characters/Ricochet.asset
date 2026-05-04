@@ -15,6 +15,7 @@ MonoBehaviour:
   characterName: Trevon
   characterAlias: Ricochet
   characterCardPrefab: {fileID: 1337935076611061204, guid: 749d64e560c6d3247a22d56924771469, type: 3}
+  allyBattleVisualPrefab: {fileID: 1373882755971942230, guid: e4fca2736b7276840bb2dbae7d8db8d9, type: 3}
   baseHealth: 60
   baseArmor: 2
   startingCards:

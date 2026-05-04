@@ -9,7 +9,7 @@ public class PlayerHand : MonoBehaviour
 
     private void Awake()
     {
-        var canvas = FindFirstObjectByType<Canvas>().gameObject;
+        var canvas = GameObject.FindGameObjectWithTag("Main Canvas");
         cardParent = canvas.transform.Find("Hand Visual");
     }
     
@@ -28,10 +28,11 @@ public class PlayerHand : MonoBehaviour
         return cardsInHand;
     }
     
-    public void AddCardToHand(CombatCard card)
+    public void AddCardToHand(ref CombatCard card)
     {
         cardsInHand.Add(card);
         var cardObject = Instantiate(card.cardVisuals, cardParent);
+        card.myCardController = cardObject.GetComponent<CardController>();
         cardObject.name = card.cardName;
     }
 

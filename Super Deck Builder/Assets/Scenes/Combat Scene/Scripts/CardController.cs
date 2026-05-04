@@ -4,17 +4,21 @@ using UnityEngine.EventSystems;
 public class CardController : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
     private CombatController combatController;
-    private Canvas myCanvas;
+    [SerializeField] private Canvas myCanvas;
     
     private Vector3 startPos;
-    private const int CANVAS_ORDER = 1;
+    [SerializeField] private int handLayer;
 
     private void Awake()
     {
         combatController = FindFirstObjectByType<CombatController>();
-        myCanvas = GetComponent<Canvas>();
         myCanvas.overrideSorting = true;
-        myCanvas.sortingOrder = CANVAS_ORDER;
+    }
+
+    public void SetHandLayering(int index)
+    {
+        handLayer = index;
+        myCanvas.sortingOrder = handLayer;
     }
     
     public void OnPointerClick(PointerEventData eventData)
@@ -25,7 +29,7 @@ public class CardController : MonoBehaviour, IPointerClickHandler, IPointerEnter
     
     public void OnPointerEnter(PointerEventData eventData)
     {
-        myCanvas.sortingOrder = 3;
+        myCanvas.sortingOrder = 20;
         
         startPos = gameObject.transform.position;
         var pos = gameObject.transform.position;
@@ -35,7 +39,7 @@ public class CardController : MonoBehaviour, IPointerClickHandler, IPointerEnter
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        myCanvas.sortingOrder = CANVAS_ORDER;
+        myCanvas.sortingOrder = handLayer;
         
         gameObject.transform.position = startPos;
     }

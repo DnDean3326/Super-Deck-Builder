@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using Random = UnityEngine.Random;
 
 public class CombatController : MonoBehaviour
@@ -36,16 +38,23 @@ public class CombatController : MonoBehaviour
     
     [Header("Tokens")]
     [SerializeField] private List<CombatToken> allTokens = new List<CombatToken>();
-    
-    [Header("UI Objects")]
-    //
+
+    [Header("UI")] 
+    [SerializeField] private GameObject deckHolder;
+    [SerializeField] private GameObject combatantHolder;
+    [SerializeField] private Animator combatStartUIAnimator;
+    [SerializeField] private Animator combatEndUIAnimator;
     
     // Turn pause consts
     private const float TURN_ACTION_DELAY = 0.8f;
+    private const float START_DELAY = 2.6f;
     private const float END_DELAY = 2.5f;
     
     // Consts
-    private const int BASE_CARD_DRAW = 5; 
+    private const int BASE_CARD_DRAW = 5;
+    
+    // Animator Consts
+    private const string START_TRIGGER = "StartTrigger";
 
     // Script Variables
     private PartyManager partyManager;
@@ -106,7 +115,16 @@ public class CombatController : MonoBehaviour
         foreach (ActiveCharacter character in activeCharacters) {
             PlayerEntity tempEntity = new PlayerEntity(character, BASE_CARD_DRAW);
             
-            //TODO Spawn character visuals
+            // Spawn Visuals
+            GameObject tempVisualObject = Instantiate(character.allyBattleVisualPrefab,
+                combatantHolder.transform.GetChild(0).position, Quaternion.identity, combatantHolder.transform.GetChild(0));
+            CombatVisuals tempCombatVisuals = tempVisualObject.GetComponent<CombatVisuals>();
+            
+            // Set the visuals' starting values
+            tempCombatVisuals.SetStartingValues(tempEntity);
+            // Assign said visuals to the battle entity
+            tempEntity.myVisuals = tempVisualObject;
+            tempEntity.combatVisuals = tempCombatVisuals;
             
             allCombatants.Add(tempEntity);
             allyCombatants.Add(tempEntity);
@@ -124,7 +142,16 @@ public class CombatController : MonoBehaviour
         foreach (Enemy enemy in enemies) {
             NpcEntity tempEntity = new NpcEntity(enemy);
             
-            //TODO Spawn character visuals
+            // Spawn Visuals
+            GameObject tempVisualObject = Instantiate(enemy.enemyBattleVisualPrefab,
+                combatantHolder.transform.GetChild(1).position, Quaternion.identity, combatantHolder.transform.GetChild(1));
+            CombatVisuals tempCombatVisuals = tempVisualObject.GetComponent<CombatVisuals>();
+            
+            // Set the visuals' starting values
+            tempCombatVisuals.SetStartingValues(tempEntity);
+            // Assign said visuals to the battle entity
+            tempEntity.myVisuals = tempVisualObject;
+            tempEntity.combatVisuals = tempCombatVisuals;
             
             //TODO check if other enemies share a name in the combat and append a number to the end of their name
             
@@ -140,11 +167,12 @@ public class CombatController : MonoBehaviour
             
             GameObject tempDeckHolder = new GameObject { name = "Player " + (i + 1) + " Deck" };
             tempDeckHolder.transform.SetParent(this.transform);
+            deckHolder = tempDeckHolder;
 
-            var tempDraw = CreatePlayerDraw(player, tempDeckHolder);
-            var tempHand = CreatePlayerHand(player, tempDeckHolder);
-            var tempDiscard = CreatePlayerDiscard(player, tempDeckHolder);
-            var tempExile = CreatePlayerExile(player, tempDeckHolder);
+            var tempDraw = CreatePlayerDraw(player, deckHolder);
+            var tempHand = CreatePlayerHand(player, deckHolder);
+            var tempDiscard = CreatePlayerDiscard(player, deckHolder);
+            var tempExile = CreatePlayerExile(player, deckHolder);
 
             PlayerDeck tempDeck = new PlayerDeck(tempDraw, tempHand, tempDiscard, tempExile);
             tempDeck.ReshuffleDeck();
@@ -210,13 +238,46 @@ public class CombatController : MonoBehaviour
         print("Start Routine");
         
         if (state == CombatState.Start) {
+            combatStartUIAnimator.SetTrigger(START_TRIGGER);
+            yield return new WaitForSeconds(START_DELAY);
             // Eventually combatant initialization info will go here
             state = CombatState.Combat;
+            StartCoroutine(EndHandlerRoutine());
             StartCoroutine(CombatRoutine());
-            yield return new WaitForSeconds(1f);
+            yield break;
         } else {
             print("Start Routine called but the combat system is in the " + state + " state.");
+            yield break;
         }
+    }
+
+    private IEnumerator EndHandlerRoutine()
+    {
+        yield return new WaitUntil(() => playerCombatants.Count == 0 || enemyCombatants.Count == 0);
+        
+        // If no party members remain -> battle is lost
+        if (playerCombatants.Count <= 0) {
+            state = CombatState.Defeat;
+            StopAllCoroutines();
+            print("GAME OVER! \n Go to game over screen.");
+            canSelectCards = false;
+            Destroy(deckHolder);
+            yield break;
+        } 
+        // If no enemies remain -> battle is won
+        if (enemyCombatants.Count <= 0) {
+            state = CombatState.Victory;
+            combatEndUIAnimator.SetTrigger(START_TRIGGER);
+            yield return new WaitForSeconds(END_DELAY);  // wait a few seconds
+            StopAllCoroutines();
+            print("You win! \n Restart to play again.");
+            canSelectCards = false;
+            Destroy(deckHolder);
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            yield break;
+        }
+        
+        StartCoroutine(EndHandlerRoutine());
     }
 
     private IEnumerator CombatRoutine()
@@ -227,19 +288,6 @@ public class CombatController : MonoBehaviour
             // Remove any dead combatants from the combat
             FixResources();
             RemoveDeadCombatants();
-            
-            // If no party members remain -> battle is lost
-            if (playerCombatants.Count <= 0) {
-                state = CombatState.Defeat;
-                yield return new WaitForSeconds(TURN_ACTION_DELAY);  // wait a few seconds
-                print("GAME OVER! \n Go to game over screen.");
-            }
-            // If no enemies remain -> battle is won
-            if (enemyCombatants.Count <= 0) {
-                state = CombatState.Victory;
-                yield return new WaitForSeconds(END_DELAY);  // wait a few seconds
-                print("You win! \n Restart to play again.");
-            }
 
             // Determine which entity acts next
             if (activeEntity == null) {
@@ -252,28 +300,25 @@ public class CombatController : MonoBehaviour
                 }
                 activeEntity = turnOrder[activePosition];
             }
-            print(activeEntity.name);
-            yield return new WaitForSeconds(1f);
 
             // Calls the appropriate turn routine
             if (allyCombatants.Any(t => t.name == activeEntity.name)) {
                 if (playerCombatants.Any(t => t.name == activeEntity.name)) {
                     state = CombatState.PlayerTurn;
                     StartCoroutine(PlayerTurnRoutine());
-                    yield break;
                 } else {
                     state = CombatState.NpcTurn;
                     StartCoroutine(NpcTurnRoutine()); //TODO add ally functionality
-                    yield break;
                 }
             } else {
                 state = CombatState.NpcTurn;
                 print("Enemy turn reached");
                 StartCoroutine(NpcTurnRoutine());
-                yield break;
             }
+            yield return new WaitForSeconds(1f);
         } else {
             print("Combat Routine called but the battle combat is in the " + state + " state.");
+            yield break;
         }
     }
 
@@ -284,6 +329,9 @@ public class CombatController : MonoBehaviour
         if (state == CombatState.PlayerTurn) {
             PlayerEntity activePlayer = playerCombatants.Find(t => t.name == activeEntity.name);
             activePlayer.DisplayCharacterEnergy(energyDisplayUI);
+            activePlayer.currentDefense = 0;
+            activePlayer.combatVisuals.UpdateHealthBar();
+            activePlayer.combatVisuals.UpdateDefense();
             
             activePlayer.DrawHand();
             cardSelected = false;
@@ -296,13 +344,14 @@ public class CombatController : MonoBehaviour
                 state = CombatState.Targeting;
                 //TODO eventually make this a variable so the active routine can be canceled for the purposes of changing selection
                 yield return StartCoroutine(TargetingRoutine());
+                RemoveDeadCombatants();
                 cardSelected = false;
             }
             activePlayer.DiscardHand();
             activePlayer.HideEnergyUI(energyDisplayUI);
             state = CombatState.Combat;
             StartCoroutine(CombatRoutine());
-            yield return new WaitForSeconds(1f);
+            yield break;
         } else {
             print("Player Turn Routine called but the combat system is in the " + state + " state.");
             yield break;
@@ -323,7 +372,7 @@ public class CombatController : MonoBehaviour
             
             targetEntity = activePlayer.selectedTarget;
             activePlayer.UpdateEnergyUI(energyDisplayUI, selectedCard.energyCost);
-            activePlayer.myDeck.hand.RemoveCardFromHand(selectedCard, false);
+            activePlayer.myDeck.DiscardCard(selectedCard);
 
             switch (selectedCard.cardType) {
                 case CardTypes.Attack:
@@ -343,7 +392,7 @@ public class CombatController : MonoBehaviour
 
             targetSelected = false;
             state = CombatState.PlayerTurn;
-            yield return new WaitForSeconds(1f);
+            yield break;
         } else {
             print("Targeting Routine called but the combat system is in the " + state + " state.");
             yield break;
@@ -354,10 +403,14 @@ public class CombatController : MonoBehaviour
     {
         print("NPC Turn Routine");
 
-        if (state == CombatState.NpcTurn) {
+        if (state == CombatState.NpcTurn) { //TODO add Ally functionality
             NpcEntity activeEnemy = enemyCombatants.Find(t => t.name == activeEntity.name);
             NpcAbility activeAbility = activeEnemy.RetrieveAbility();
             CombatEntity target;
+            
+            activeEnemy.currentDefense = 0;
+            activeEnemy.combatVisuals.UpdateHealthBar();
+            activeEnemy.combatVisuals.UpdateDefense();
 
             if (activeAbility.targetGroup == NpcBrain.TargetFaction.Party) {
                 target = allyCombatants[Random.Range(0, allyCombatants.Count)];
@@ -375,7 +428,7 @@ public class CombatController : MonoBehaviour
 
             state = CombatState.Combat;
             StartCoroutine(CombatRoutine());
-            yield return new WaitForSeconds(1f);
+            yield break;
         } else {
             print("NPC Turn Routine called but the combat system is in the " + state + " state.");
             yield break;
@@ -408,12 +461,14 @@ public class CombatController : MonoBehaviour
         int defenseModifier = 0;
         int minDefenseRange = 0;
         int maxDefenseRange = 0;
+        bool willDefend = false;
         
         // Set Min and Max defense values 
         for (int i = 0; i < activeAbility.abilityValues.Count; i++) {
             if (activeAbility.abilityValues[i].cardValue == CardValue.Defense) {
                 minDefenseRange = activeAbility.abilityValues[i].minValue + defenseModifier;
                 maxDefenseRange = activeAbility.abilityValues[i].maxValue + defenseModifier;
+                willDefend = true;
             }
         }
 
@@ -424,33 +479,39 @@ public class CombatController : MonoBehaviour
         int healModifier = 0;
         int minHealRange = 0;
         int maxHealRange = 0;
+        bool willHeal = false;
         
         // Set Min and Max heal values 
         for (int i = 0; i < activeAbility.abilityValues.Count; i++) {
             if (activeAbility.abilityValues[i].cardValue == CardValue.Heal) {
                 minHealRange = activeAbility.abilityValues[i].minValue + healModifier;
                 maxHealRange = activeAbility.abilityValues[i].maxValue + healModifier;
+                willHeal = true;
             }
         }
 
         // Determine heal amount
         int heal = Random.Range(minHealRange, maxHealRange+1);
         
-        // Play combat animations // TODO call animations
+        // Play combat animations // TODO call animations and modify this to allow for both a block and heal animation
+        if (willHeal) {
+            user.combatVisuals.PlayHealAnimation(heal); // user plays on heal animation
+        } else if (willDefend) {
+            user.combatVisuals.PlayDefendAnimation(defense); // user plays on defend animation
+        }
+        target.combatVisuals.PlayHitAnimation(damage); // target plays on hit animation
         
         // Apply Block and Healing
-        foreach (var abilityValue in activeAbility.abilityValues) {
-            if (abilityValue.cardValue == CardValue.Defense) {
-                user.currentDefense += defense;
-                if (user.currentDefense > user.maxDefense) {
-                    user.currentDefense = user.maxDefense;
-                }
+        if (willDefend) {
+            target.currentDefense += defense;
+            if (target.currentDefense > target.maxDefense) {
+                target.currentDefense = target.maxDefense;
             }
-            if (abilityValue.cardValue == CardValue.Heal) {
-                user.currentHealth += heal;
-                if (user.currentHealth > user.maxHealth) {
-                    user.currentHealth = user.maxHealth;
-                }
+        }
+        if (willHeal) {
+            target.currentHealth += heal;
+            if (target.currentHealth > target.maxHealth) {
+                target.currentHealth = target.maxHealth;
             }
         }
         
@@ -467,11 +528,15 @@ public class CombatController : MonoBehaviour
         } else {
             target.currentHealth -= damage;
         }
-        print("Target HP: " + target.currentHealth);
         if (target.currentHealth <= 0) {
             isLethal = true;
         }
         
+        FixResources();
+        user.combatVisuals.UpdateHealthBar();
+        user.combatVisuals.UpdateDefense();
+        target.combatVisuals.UpdateHealthBar();
+        target.combatVisuals.UpdateDefense();
         SaveResources();
         yield break;
     }
@@ -484,12 +549,14 @@ public class CombatController : MonoBehaviour
         int defenseModifier = 0;
         int minDefenseRange = 0;
         int maxDefenseRange = 0;
+        bool willDefend = false;
         
         // Set Min and Max defense values 
         for (int i = 0; i < activeAbility.abilityValues.Count; i++) {
             if (activeAbility.abilityValues[i].cardValue == CardValue.Defense) {
                 minDefenseRange = activeAbility.abilityValues[i].minValue + defenseModifier;
                 maxDefenseRange = activeAbility.abilityValues[i].maxValue + defenseModifier;
+                willDefend = true;
             }
         }
 
@@ -500,34 +567,46 @@ public class CombatController : MonoBehaviour
         int healModifier = 0;
         int minHealRange = 0;
         int maxHealRange = 0;
+        bool willHeal = false;
         
         // Set Min and Max heal values 
         for (int i = 0; i < activeAbility.abilityValues.Count; i++) {
             if (activeAbility.abilityValues[i].cardValue == CardValue.Heal) {
                 minHealRange = activeAbility.abilityValues[i].minValue + healModifier;
                 maxHealRange = activeAbility.abilityValues[i].maxValue + healModifier;
+                willHeal = true;
             }
         }
 
         // Determine heal amount
         int heal = Random.Range(minHealRange, maxHealRange+1);
         
+        // Play combat animations // TODO call animations and modify this to allow for both a block and heal animation
+        if (willHeal) {
+            target.combatVisuals.PlayHealAnimation(heal); // target plays on heal animation
+        } else if (willDefend) {
+            target.combatVisuals.PlayDefendAnimation(defense); // target plays on defend animation
+        }
+        
         // Apply Block and Healing
-        foreach (var abilityValue in activeAbility.abilityValues) {
-            if (abilityValue.cardValue == CardValue.Defense) {
-                target.currentDefense += defense;
-                if (target.currentDefense > target.maxDefense) {
-                    target.currentDefense = target.maxDefense;
-                }
+        if (willDefend) {
+            target.currentDefense += defense;
+            if (target.currentDefense > target.maxDefense) {
+                target.currentDefense = target.maxDefense;
             }
-            if (abilityValue.cardValue == CardValue.Heal) {
-                target.currentHealth += heal;
-                if (target.currentHealth > target.maxHealth) {
-                    target.currentHealth = target.maxHealth;
-                }
+        }
+        if (willHeal) {
+            target.currentHealth += heal;
+            if (target.currentHealth > target.maxHealth) {
+                target.currentHealth = target.maxHealth;
             }
         }
         
+        FixResources();
+        user.combatVisuals.UpdateHealthBar();
+        user.combatVisuals.UpdateDefense();
+        target.combatVisuals.UpdateHealthBar();
+        target.combatVisuals.UpdateDefense();
         SaveResources();
         yield break;
     }
@@ -556,7 +635,63 @@ public class CombatController : MonoBehaviour
         // Determine damage amount
         int damage = Random.Range(minDamageRange, maxDamageRange+1);
 
-        // Play combat animations // TODO call animations
+        // Declare defense values
+        int defenseModifier = 0;
+        int minDefenseRange = 0;
+        int maxDefenseRange = 0;
+        bool willDefend = false;
+        
+        // Set Min and Max defense values 
+        for (int i = 0; i < activeCard.cardValues.Count; i++) {
+            if (activeCard.cardValues[i].cardValue == CardValue.Defense) {
+                minDefenseRange = activeCard.cardValues[i].minValue + defenseModifier;
+                maxDefenseRange = activeCard.cardValues[i].maxValue + defenseModifier;
+                willDefend = true;
+            }
+        }
+
+        // Determine defense amount
+        int defense = Random.Range(minDefenseRange, maxDefenseRange+1);
+
+        // Declare heal values
+        int healModifier = 0;
+        int minHealRange = 0;
+        int maxHealRange = 0;
+        bool willHeal = false;
+        
+        // Set Min and Max heal values 
+        for (int i = 0; i < activeCard.cardValues.Count; i++) {
+            if (activeCard.cardValues[i].cardValue == CardValue.Heal) {
+                minHealRange = activeCard.cardValues[i].minValue + healModifier;
+                maxHealRange = activeCard.cardValues[i].maxValue + healModifier;
+                willHeal = true;
+            }
+        }
+
+        // Determine heal amount
+        int heal = Random.Range(minHealRange, maxHealRange+1);
+        
+        // Play combat animations // TODO call animations and modify this to allow for both a block and heal animation
+        if (willHeal) {
+            user.combatVisuals.PlayHealAnimation(heal); // user plays on heal animation
+        } else if (willDefend) {
+            user.combatVisuals.PlayDefendAnimation(defense); // user plays on defend animation
+        }
+        target.combatVisuals.PlayHitAnimation(damage); // target plays on hit animation
+        
+        // Apply Block and Healing
+        if (willDefend) {
+            target.currentDefense += defense;
+            if (target.currentDefense > target.maxDefense) {
+                target.currentDefense = target.maxDefense;
+            }
+        }
+        if (willHeal) {
+            target.currentHealth += heal;
+            if (target.currentHealth > target.maxHealth) {
+                target.currentHealth = target.maxHealth;
+            }
+        }
         
         // Deal the damage to defense, or if the target has none, to HP
         if (target.currentDefense > 0) {
@@ -571,11 +706,15 @@ public class CombatController : MonoBehaviour
         } else {
             target.currentHealth -= damage;
         }
-        print("Target HP: " + target.currentHealth);
         if (target.currentHealth <= 0) {
             isLethal = true;
         }
-        
+
+        FixResources();
+        user.combatVisuals.UpdateHealthBar();
+        user.combatVisuals.UpdateDefense();
+        target.combatVisuals.UpdateHealthBar();
+        target.combatVisuals.UpdateDefense();
         SaveResources();
         yield break;
     }
@@ -590,12 +729,14 @@ public class CombatController : MonoBehaviour
         int defenseModifier = 0;
         int minDefenseRange = 0;
         int maxDefenseRange = 0;
+        bool willDefend = false;
         
         // Set Min and Max defense values 
         for (int i = 0; i < activeCard.cardValues.Count; i++) {
             if (activeCard.cardValues[i].cardValue == CardValue.Defense) {
                 minDefenseRange = activeCard.cardValues[i].minValue + defenseModifier;
                 maxDefenseRange = activeCard.cardValues[i].maxValue + defenseModifier;
+                willDefend = true;
             }
         }
 
@@ -606,36 +747,46 @@ public class CombatController : MonoBehaviour
         int healModifier = 0;
         int minHealRange = 0;
         int maxHealRange = 0;
+        bool willHeal = false;
         
         // Set Min and Max heal values 
         for (int i = 0; i < activeCard.cardValues.Count; i++) {
             if (activeCard.cardValues[i].cardValue == CardValue.Heal) {
                 minHealRange = activeCard.cardValues[i].minValue + healModifier;
                 maxHealRange = activeCard.cardValues[i].maxValue + healModifier;
+                willHeal = true;
             }
         }
 
         // Determine heal amount
         int heal = Random.Range(minHealRange, maxHealRange+1);
 
-        // Play combat animations // TODO call animations
+        // Play combat animations // TODO call animations and modify this to allow for both a block and heal animation
+        if (willHeal) {
+            target.combatVisuals.PlayHealAnimation(heal); // target plays on heal animation
+        } else if (willDefend) {
+            target.combatVisuals.PlayDefendAnimation(defense); // target plays on defend animation
+        }
         
         // Apply Block and Healing
-        foreach (var cardValue in activeCard.cardValues) {
-            if (cardValue.cardValue == CardValue.Defense) {
-                target.currentDefense += defense;
-                if (target.currentDefense > target.maxDefense) {
-                    target.currentDefense = target.maxDefense;
-                }
+        if (willDefend) {
+            target.currentDefense += defense;
+            if (target.currentDefense > target.maxDefense) {
+                target.currentDefense = target.maxDefense;
             }
-            if (cardValue.cardValue == CardValue.Heal) {
-                target.currentHealth += heal;
-                if (target.currentHealth > target.maxHealth) {
-                    target.currentHealth = target.maxHealth;
-                }
+        }
+        if (willHeal) {
+            target.currentHealth += heal;
+            if (target.currentHealth > target.maxHealth) {
+                target.currentHealth = target.maxHealth;
             }
         }
         
+        FixResources();
+        user.combatVisuals.UpdateHealthBar();
+        user.combatVisuals.UpdateDefense();
+        target.combatVisuals.UpdateHealthBar();
+        target.combatVisuals.UpdateDefense();
         SaveResources();
         yield break;
     }
@@ -654,11 +805,17 @@ public class CombatController : MonoBehaviour
             CombatEntity deadCombatant = null;
             if (allCombatants[i].currentHealth <= 0) {
                 deadCombatant = allCombatants[i];
-                if (!deadCombatant.isPlayer) {
+                if (!deadCombatant.isPlayer) { //TODO add functionality for removing dead allies
                     int enemyIndex = enemyCombatants.FindIndex(t => t.name == deadCombatant.name);
+                    print(deadCombatant.name + " is dead");
+                    enemyCombatants.RemoveAt(enemyIndex);
                     //encounterFunds += enemyFunds[enemyIndex];
+                } else {
+                    int playerIndex = playerCombatants.FindIndex(t => t.name == deadCombatant.name);
+                    print(deadCombatant.name + " is dead");
+                    playerCombatants.RemoveAt(playerIndex);
                 }
-                allCombatants.RemoveAt(i);
+                allCombatants.Remove(deadCombatant);
             }
             if (deadCombatant != null) {
                 //yield return new WaitForSeconds(DEATH_DELAY); TODO Add some kind of delay here
@@ -728,6 +885,9 @@ public class CombatEntity //TODO extend this class to PlayerEntity so I can sepa
     public CombatEntity selectedTarget;
     
     public List<CombatToken> activeTokens = new List<CombatToken>();
+    
+    public GameObject myVisuals;
+    public CombatVisuals combatVisuals;
 
     internal CombatEntity() {}
 }
@@ -935,15 +1095,29 @@ public class PlayerDeck
                 ReshuffleDeck();
             }
             CombatCard drawnCard = draw.DrawTopCard();
-            hand.AddCardToHand(drawnCard);
-            
+            hand.AddCardToHand(ref drawnCard);
         }
+        FixCardLayering();
+    }
+
+    public void DiscardCard(CombatCard discardCard)
+    {
+        hand.RemoveCardFromHand(discardCard, false);
+        FixCardLayering();
     }
 
     public void DiscardHand()
     {
         while (hand.GetHandCount() > 0) {
             hand.RemoveCardFromHand(hand.GetCardsInHand()[hand.GetHandCount()-1], false);
+        }
+    }
+    
+    public void FixCardLayering()
+    {
+        var handCards = hand.GetCardsInHand();
+        for (int i = 0; i < handCards.Count; i++) {
+            handCards[i].myCardController.SetHandLayering(i);
         }
     }
 }

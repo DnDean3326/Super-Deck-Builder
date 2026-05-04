@@ -62,6 +62,7 @@ public class Enemy
     public int currentArmor;
     
     public NpcBrain myBrain;
+    public GameObject enemyBattleVisualPrefab;
 
     public Enemy(EnemyInfo enemyInfo)
     {
@@ -71,5 +72,6 @@ public class Enemy
         maxArmor = enemyInfo.baseArmor;
         currentArmor = maxArmor;
         myBrain = enemyInfo.myBrain;
+        enemyBattleVisualPrefab = enemyInfo.enemyBattleVisualPrefab;
     }
 }
