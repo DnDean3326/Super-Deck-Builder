@@ -10,20 +10,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 78f5579014c46be48ac5dae531d2c44d, type: 3}
-  m_Name: Slash
+  m_Name: Defend
   m_EditorClassIdentifier: Assembly-CSharp::CardInfo
-  cardName: Slash
+  cardName: Defend
   cardArt: {fileID: 0}
-  cardType: 0
+  cardType: 1
   cardCharacter: 0
   energyCost: 1
   repeatUses: 0
   cardTargeting: 0
   cardValueInfos:
-  - cardValue: 0
-    minValue: 2
-    maxValue: 5
+  - cardValue: 1
+    minValue: 4
+    maxValue: 4
   extraCostInfos: []
   selfTokenAppliedInfos: []
   targetTokenAppliedInfos: []
-  cardDescription: 'Deal 2-5 damage. '
+  cardDescription: Gain 4 Defense.

@@ -152,6 +152,7 @@ public class CombatController : MonoBehaviour
             // Assign said visuals to the battle entity
             tempEntity.myVisuals = tempVisualObject;
             tempEntity.combatVisuals = tempCombatVisuals;
+            tempEntity.SetIntentVisuals(tempVisualObject.GetComponent<IntentVisuals>());
             
             //TODO check if other enemies share a name in the combat and append a number to the end of their name
             
@@ -290,32 +291,30 @@ public class CombatController : MonoBehaviour
             RemoveDeadCombatants();
 
             // Determine which entity acts next
-            if (activeEntity == null) {
-                activeEntity = turnOrder[0];
-            } else {
-                print("active Entity is not null");
-                int activePosition = turnOrder.IndexOf(activeEntity) + 1;
-                if (activePosition >= turnOrder.Count) {
-                    activePosition = 0;
-                }
-                activeEntity = turnOrder[activePosition];
+            int activePosition = turnOrder.IndexOf(activeEntity) + 1;
+            if (activePosition >= turnOrder.Count) {
+                activePosition = 0;
             }
+            if (activePosition == 0) { DisplayEnemyIntents(); }
+            activeEntity = turnOrder[activePosition];
 
             // Calls the appropriate turn routine
             if (allyCombatants.Any(t => t.name == activeEntity.name)) {
                 if (playerCombatants.Any(t => t.name == activeEntity.name)) {
                     state = CombatState.PlayerTurn;
+                    yield return new WaitForSeconds(0.5f);
                     StartCoroutine(PlayerTurnRoutine());
                 } else {
                     state = CombatState.NpcTurn;
+                    yield return new WaitForSeconds(0.5f);
                     StartCoroutine(NpcTurnRoutine()); //TODO add ally functionality
                 }
             } else {
                 state = CombatState.NpcTurn;
                 print("Enemy turn reached");
+                yield return new WaitForSeconds(0.5f);
                 StartCoroutine(NpcTurnRoutine());
             }
-            yield return new WaitForSeconds(1f);
         } else {
             print("Combat Routine called but the battle combat is in the " + state + " state.");
             yield break;
@@ -349,6 +348,7 @@ public class CombatController : MonoBehaviour
             }
             activePlayer.DiscardHand();
             activePlayer.HideEnergyUI(energyDisplayUI);
+            yield return new WaitForSeconds(1f);
             state = CombatState.Combat;
             StartCoroutine(CombatRoutine());
             yield break;
@@ -426,12 +426,49 @@ public class CombatController : MonoBehaviour
                 //yield return StartCoroutine();
             }
 
+            yield return new WaitForSeconds(0.5f);
             state = CombatState.Combat;
             StartCoroutine(CombatRoutine());
             yield break;
         } else {
             print("NPC Turn Routine called but the combat system is in the " + state + " state.");
             yield break;
+        }
+    }
+
+    private void DisplayEnemyIntents()
+    {
+        foreach (NpcEntity enemy in enemyCombatants) {
+            EnemyIntents intent;
+            int minValue = 0;
+            int maxValue = 0;
+            
+            NpcAbility ability = enemy.GetAbility();
+            if (ability.relevantIntents.Contains(EnemyIntents.Attack)) {
+                intent = EnemyIntents.Attack;
+                foreach (var abilityValue in ability.abilityValues.Where(abilityValue => abilityValue.cardValue == CardValue.Damage)) {
+                    minValue = abilityValue.minValue;
+                    maxValue = abilityValue.maxValue;
+                }
+            } else if (ability.relevantIntents.Contains(EnemyIntents.Defend)) {
+                intent = EnemyIntents.Defend;
+                foreach (var abilityValue in ability.abilityValues.Where(abilityValue => abilityValue.cardValue == CardValue.Defense)) {
+                    minValue = abilityValue.minValue;
+                    maxValue = abilityValue.maxValue;
+                }
+            } else if (ability.relevantIntents.Contains(EnemyIntents.Buff)) {
+                intent = EnemyIntents.Buff;
+            } else if (ability.relevantIntents.Contains(EnemyIntents.Debuff)) {
+                intent = EnemyIntents.Debuff;
+            } else {
+                throw new ArgumentOutOfRangeException();
+            }
+
+            if (minValue == maxValue) {
+                enemy.DisplayIntent(intent, minValue);
+            } else {
+                enemy.DisplayIntent(intent, minValue, maxValue);
+            }
         }
     }
 
@@ -503,15 +540,15 @@ public class CombatController : MonoBehaviour
         
         // Apply Block and Healing
         if (willDefend) {
-            target.currentDefense += defense;
-            if (target.currentDefense > target.maxDefense) {
-                target.currentDefense = target.maxDefense;
+            user.currentDefense += defense;
+            if (user.currentDefense > user.maxDefense) {
+                user.currentDefense = user.maxDefense;
             }
         }
         if (willHeal) {
-            target.currentHealth += heal;
-            if (target.currentHealth > target.maxHealth) {
-                target.currentHealth = target.maxHealth;
+            user.currentHealth += heal;
+            if (user.currentHealth > user.maxHealth) {
+                user.currentHealth = user.maxHealth;
             }
         }
         
@@ -681,15 +718,15 @@ public class CombatController : MonoBehaviour
         
         // Apply Block and Healing
         if (willDefend) {
-            target.currentDefense += defense;
-            if (target.currentDefense > target.maxDefense) {
-                target.currentDefense = target.maxDefense;
+            user.currentDefense += defense;
+            if (user.currentDefense > user.maxDefense) {
+                user.currentDefense = user.maxDefense;
             }
         }
         if (willHeal) {
-            target.currentHealth += heal;
-            if (target.currentHealth > target.maxHealth) {
-                target.currentHealth = target.maxHealth;
+            user.currentHealth += heal;
+            if (user.currentHealth > user.maxHealth) {
+                user.currentHealth = user.maxHealth;
             }
         }
         
@@ -960,6 +997,7 @@ public class PlayerEntity : CombatEntity
 public class NpcEntity : CombatEntity
 {
     private int takenTurns = 0;
+    private IntentVisuals intentVisuals;
     private NpcBrain myBrain;
     
     internal NpcEntity(Enemy enemy)
@@ -974,9 +1012,25 @@ public class NpcEntity : CombatEntity
         myBrain = enemy.myBrain;
     }
 
-    internal void DisplayIntent()
+    internal void SetIntentVisuals(IntentVisuals intentScript)
     {
-        
+        intentVisuals = intentScript;
+    }
+
+    internal NpcAbility GetAbility()
+    {
+        NpcAbility turnAbility = myBrain.npcAbilities[takenTurns % myBrain.npcAbilities.Count];
+        return turnAbility;
+    }
+    
+    internal void DisplayIntent(EnemyIntents intent, int value)
+    {
+        intentVisuals.DisplayIntent(intent, value);
+    }
+
+    internal void DisplayIntent(EnemyIntents intent, int minValue, int maxValue)
+    {
+        intentVisuals.DisplayIntent(intent, minValue, maxValue);
     }
 
     internal NpcAbility RetrieveAbility()
