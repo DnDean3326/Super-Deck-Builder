@@ -426,6 +426,7 @@ MonoBehaviour:
     myVisuals: {fileID: 0}
     combatVisuals: {fileID: 0}
   allTokens: []
+  handVisual: {fileID: 960581576}
   deckHolder: {fileID: 0}
   combatantHolder: {fileID: 1165649469}
   combatStartUIAnimator: {fileID: 159127144}
