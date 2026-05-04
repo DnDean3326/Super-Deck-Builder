@@ -15,8 +15,8 @@ public class CombatController : MonoBehaviour
         Combat,
         PlayerTurn,
         NpcTurn,
-        Targeting, // Unsure if this one will be needed with the simpler targeting system
-        TurnEnd,
+        Targeting,
+        TurnEnd, //TODO implement this to help with tokens
         Victory,
         Defeat
     }
@@ -39,7 +39,8 @@ public class CombatController : MonoBehaviour
     [Header("Tokens")]
     [SerializeField] private List<CombatToken> allTokens = new List<CombatToken>();
 
-    [Header("UI")] 
+    [Header("UI")]
+    [SerializeField] private GameObject handVisual;
     [SerializeField] private GameObject deckHolder;
     [SerializeField] private GameObject combatantHolder;
     [SerializeField] private Animator combatStartUIAnimator;
@@ -259,21 +260,23 @@ public class CombatController : MonoBehaviour
         // If no party members remain -> battle is lost
         if (playerCombatants.Count <= 0) {
             state = CombatState.Defeat;
+            Destroy(handVisual);
+            energyDisplayUI.HideEnergy();
             StopAllCoroutines();
             print("GAME OVER! \n Go to game over screen.");
             canSelectCards = false;
-            Destroy(deckHolder);
+            Application.Quit();
             yield break;
         } 
         // If no enemies remain -> battle is won
         if (enemyCombatants.Count <= 0) {
             state = CombatState.Victory;
+            Destroy(handVisual);
+            energyDisplayUI.HideEnergy();
             combatEndUIAnimator.SetTrigger(START_TRIGGER);
             yield return new WaitForSeconds(END_DELAY);  // wait a few seconds
             StopAllCoroutines();
-            print("You win! \n Restart to play again.");
             canSelectCards = false;
-            Destroy(deckHolder);
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             yield break;
         }
