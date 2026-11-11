@@ -103,7 +103,6 @@ public class CombatController : MonoBehaviour
 
         foreach (Token token in tokens) {
             CombatToken tempToken = new CombatToken(token);
-            
             allTokens.Add(tempToken);
         }
     }
@@ -903,7 +902,7 @@ public class CombatController : MonoBehaviour
 }
 
 [Serializable]
-public class CombatEntity //TODO extend this class to PlayerEntity so I can separate player only values from enemies
+public class CombatEntity 
 {
     public string name;
     public Sprite portrait;
